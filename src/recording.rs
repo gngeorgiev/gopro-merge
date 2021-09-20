@@ -1,8 +1,11 @@
+use std::fmt;
+
 use anyhow::Result;
 use thiserror::Error;
 
 use crate::encoding::Encoding;
 use crate::identifier::Identifier;
+use std::fmt::Formatter;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -23,7 +26,7 @@ impl Group {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Recording {
     pub group: Group,
     pub chapter: Identifier,
@@ -56,13 +59,12 @@ impl Recording {
 
         Ok(Recording { group, chapter })
     }
+}
 
-    pub fn group(&self) -> Group {
-        self.group.clone()
-    }
-
-    pub fn name(&self) -> String {
-        format!(
+impl fmt::Display for Recording {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
             "{}{}{}.{}",
             self.group.encoding, self.chapter, self.group.file, self.group.extension
         )
@@ -116,8 +118,8 @@ mod tests {
             assert_eq!(expected, parsed);
         });
 
-        let not_ok = vec!["invalid_dots_amount..", "name_longer_than_8_chars_.mp4"];
-        not_ok.into_iter().for_each(|input| {
+        let not_ok_input = vec!["invalid_dots_amount..", "name_longer_than_8_chars_.mp4"];
+        not_ok_input.into_iter().for_each(|input| {
             assert!(Recording::try_parse(input).is_err());
         });
     }
