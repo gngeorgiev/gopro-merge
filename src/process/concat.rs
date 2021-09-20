@@ -17,12 +17,6 @@ type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Invalid ffmpeg info - no duration")]
-    NoDuration,
-
-    #[error("Invalid ffmpeg info - duration has no matching group")]
-    NoGroup,
-
     #[error("Failed to get ffmpeg info {0}")]
     FailedToGetInfo(String),
 

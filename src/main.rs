@@ -3,7 +3,6 @@ use std::env;
 use std::path::PathBuf;
 
 use anyhow::Result;
-use rayon::prelude::*;
 use structopt::StructOpt;
 
 mod encoding;
