@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::thread;
 
 use crate::progress::{ConsoleProgressBar, ConsoleProgressBarReporter, Reporter};
-use crate::recording::{Recording, RecordingGroup};
+use crate::recording::RecordingGroup;
 use crate::{concat::concatenate, recording::RecordingGroups};
 use rayon::prelude::*;
 

@@ -7,7 +7,7 @@ use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
 use crate::progress::Progress;
-use crate::recording::{Recording, RecordingGroup};
+use crate::recording::RecordingGroup;
 use crate::{
     concat::Error::{FailedToConvert, FailedToGetInfo},
     identifier::Identifier,
