@@ -1,10 +1,6 @@
-use indicatif::{
-    FormattedDuration, MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle,
-};
+use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 
-use crate::recording::Group;
-
-use std::sync::{Arc};
+use std::sync::Arc;
 use std::time::Duration;
 
 pub trait Reporter<T> {
@@ -42,7 +38,7 @@ impl Reporter<ConsoleProgressBar> for ConsoleProgressBarReporter {
 }
 
 pub trait Progress {
-    fn init(&self, group: &Group);
+    fn init(&self, prefix: &str);
     fn update(&mut self, len: Duration, progress: Duration);
     fn finish(&self);
 }
@@ -54,8 +50,8 @@ pub struct ConsoleProgressBar {
 }
 
 impl Progress for ConsoleProgressBar {
-    fn init(&self, group: &Group) {
-        self.pb.set_prefix(&group.name());
+    fn init(&self, prefix: &str) {
+        self.pb.set_prefix(prefix);
     }
 
     fn update(&mut self, len: Duration, progress: Duration) {

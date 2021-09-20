@@ -5,15 +5,15 @@ use std::path::PathBuf;
 use anyhow::Result;
 use structopt::StructOpt;
 
+mod concat;
 mod encoding;
 mod group;
 mod identifier;
-mod process;
+mod processor;
 mod progress;
 mod recording;
 
 use crate::group::recording_groups;
-use crate::process::*;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "gopro-join")]
@@ -54,7 +54,7 @@ fn main() -> Result<()> {
     let output = opt.get_output()?;
 
     let groups = recording_groups(&input)?;
-    ParallelRecordingsProcessor::new(input, output, groups).process()?;
+    processor::process(input, output, groups)?;
 
     Ok(())
 }

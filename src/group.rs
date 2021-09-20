@@ -1,40 +1,44 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::TryFrom};
 
-use crate::recording::{Group, Recording};
+use crate::recording::{Recording, RecordingFingerprint, RecordingGroup, RecordingGroups};
 use std::fs::read_dir;
 use std::io;
 use std::path::PathBuf;
 
 use anyhow::Result;
 
-pub fn recording_groups(path: &PathBuf) -> Result<Vec<(Group, Vec<Recording>)>> {
+pub fn recording_groups(path: &PathBuf) -> Result<RecordingGroups> {
     let files = read_dir(path)?.collect::<io::Result<Vec<_>>>()?;
     let recordings = files
         .into_iter()
         .filter_map(|f| f.file_name().to_str().map(|f| f.to_string()))
-        .filter_map(|rec| Recording::try_parse(&rec).ok());
+        .filter_map(|rec| Recording::try_from(rec.as_str()).ok());
 
     Ok(groups_from_recordings(recordings))
 }
 
-fn groups_from_recordings(
-    recordings: impl Iterator<Item = Recording>,
-) -> Vec<(Group, Vec<Recording>)> {
-    let mut v = recordings
-        .fold(HashMap::<Group, Vec<Recording>>::new(), |mut acc, rec| {
-            acc.entry(rec.group.clone()).or_default().push(rec);
-            acc
-        })
+fn groups_from_recordings(recordings: impl Iterator<Item = Recording>) -> RecordingGroups {
+    recordings
+        .fold(
+            HashMap::<RecordingFingerprint, RecordingGroup>::new(),
+            |mut acc, rec| {
+                let group = acc
+                    .entry(rec.fingerprint.clone())
+                    .or_insert_with(|| RecordingGroup {
+                        fingerprint: rec.fingerprint,
+                        chapters: vec![],
+                    });
+                group.chapters.push(rec.chapter);
+                acc
+            },
+        )
         .drain()
         .into_iter()
-        .map(|(grp, mut v)| {
-            v.sort_by(|a, b| a.chapter.value.cmp(&b.chapter.value));
-            (grp, v)
+        .map(|(_, mut v)| {
+            v.chapters.sort_by(|a, b| a.value.cmp(&b.value));
+            v
         })
-        .collect::<Vec<_>>();
-
-    v.sort_by(|a, b| a.0.file.cmp(&b.0.file));
-    v
+        .collect::<RecordingGroups>()
 }
 
 #[cfg(test)]

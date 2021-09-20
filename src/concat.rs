@@ -1,13 +1,17 @@
 use std::env;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
+use std::mem;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
-use crate::process::concat::Error::{FailedToConvert, FailedToGetInfo};
 use crate::progress::Progress;
-use crate::recording::{Group, Recording};
+use crate::recording::{Recording, RecordingGroup};
+use crate::{
+    concat::Error::{FailedToConvert, FailedToGetInfo},
+    identifier::Identifier,
+};
 
 use anyhow::Context;
 use std::num::ParseIntError;
@@ -40,14 +44,16 @@ pub fn concatenate(
     pb: impl Progress,
     input_path: PathBuf,
     output_path: PathBuf,
-    group: Group,
-    recordings: Vec<Recording>,
+    mut group: RecordingGroup,
 ) -> Result<()> {
-    pb.init(&group);
+    pb.init(group.name().as_str());
 
     let (input_file, input_file_path) = ffmpeg_input_file(&group)?;
-    let recordings_files_paths =
-        write_recordings_to_input_file(input_file, input_path, recordings)?;
+    let recordings_files_paths = write_recordings_to_input_file(
+        input_file,
+        input_path,
+        mem::replace(&mut group.chapters, vec![]),
+    )?;
     let duration = calculate_total_duration(recordings_files_paths)?;
 
     convert(pb, input_file_path, output_path, duration, &group)?;
@@ -55,8 +61,8 @@ pub fn concatenate(
     Ok(())
 }
 
-fn ffmpeg_input_file(group: &Group) -> Result<(File, PathBuf)> {
-    let file_path = env::temp_dir().join(format!("{}.txt", group.file.representation));
+fn ffmpeg_input_file(group: &RecordingGroup) -> Result<(File, PathBuf)> {
+    let file_path = env::temp_dir().join(format!("{}.txt", group.fingerprint.file.representation));
     if file_path.exists() {
         fs::remove_file(&file_path)?;
     }
@@ -72,7 +78,7 @@ fn ffmpeg_input_file(group: &Group) -> Result<(File, PathBuf)> {
 fn write_recordings_to_input_file(
     mut input_file: File,
     input_path: PathBuf,
-    recordings: Vec<Recording>,
+    recordings: Vec<Identifier>,
 ) -> Result<Vec<PathBuf>> {
     recordings
         .iter()
@@ -90,7 +96,7 @@ fn convert(
     input_file_path: PathBuf,
     output_path: PathBuf,
     duration: Duration,
-    group: &Group,
+    group: &RecordingGroup,
 ) -> Result<()> {
     // https://trac.ffmpeg.org/wiki/Concatenate
     let mut cmd = Command::new("ffmpeg")
