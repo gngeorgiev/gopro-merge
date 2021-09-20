@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::encoding::Encoding;
 use crate::identifier::Identifier;
-use std::fmt::Formatter;
+
 
 #[derive(Error, Debug)]
 pub enum Error {

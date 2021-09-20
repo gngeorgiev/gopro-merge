@@ -1,13 +1,8 @@
-use std::collections::HashMap;
 use std::env;
-use std::fmt::{self, Display, Formatter};
-use std::fs::{self, DirEntry, OpenOptions};
-use std::io;
-use std::io::Write;
-use std::path::PathBuf;
-use std::process::Command;
 
-use anyhow::{Context, Error, Result};
+use std::path::PathBuf;
+
+use anyhow::Result;
 use rayon::prelude::*;
 use structopt::StructOpt;
 
@@ -20,7 +15,6 @@ mod recording;
 
 use crate::group::recording_groups;
 use crate::process::*;
-use crate::recording::*;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "gopro-join")]

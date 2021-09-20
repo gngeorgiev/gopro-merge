@@ -47,7 +47,7 @@ mod tests {
         let rec2 = Recording::try_parse("GH021234.mp4").unwrap();
         let rec3 = Recording::try_parse("GH011235.mp4").unwrap();
 
-        let input = vec![rec1, rec2, rec3].into_iter();
+        let input = vec![rec1.clone(), rec2.clone(), rec3.clone()].into_iter();
         let res = groups_from_recordings(input);
         assert_eq!(res.len(), 2);
 

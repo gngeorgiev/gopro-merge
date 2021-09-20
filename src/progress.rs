@@ -1,10 +1,10 @@
 use indicatif::{
-    FormattedDuration, HumanDuration, MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle,
+    FormattedDuration, MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle,
 };
 
 use crate::recording::Group;
-use std::borrow::Borrow;
-use std::sync::{Arc, Mutex};
+
+use std::sync::{Arc};
 use std::time::Duration;
 
 pub trait Reporter<T> {

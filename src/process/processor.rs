@@ -1,17 +1,17 @@
-use std::env;
-use std::fs::{self, OpenOptions};
-use std::io::{Read, Write};
+
+
+
 use std::path::PathBuf;
-use std::process::Command;
-use std::sync::mpsc::channel;
+
+
 
 use crate::process::concat::concatenate;
-use crate::progress::{ConsoleProgressBar, ConsoleProgressBarReporter, Reporter};
+use crate::progress::{ConsoleProgressBarReporter, Reporter};
 use crate::recording::{Group, Recording};
 use rayon::prelude::*;
 
-use anyhow::{Context, Error, Result};
-use std::time::Duration;
+use anyhow::{Result};
+
 
 pub struct ParallelRecordingsProcessor {
     input_path: PathBuf,

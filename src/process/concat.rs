@@ -1,6 +1,6 @@
 use std::env;
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
@@ -43,7 +43,7 @@ pub enum Error {
 }
 
 pub fn concatenate(
-    mut pb: impl Progress,
+    pb: impl Progress,
     input_path: PathBuf,
     output_path: PathBuf,
     group: Group,
