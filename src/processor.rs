@@ -1,17 +1,12 @@
 use std::path::PathBuf;
 use std::thread;
 
-use crate::progress::{ConsoleProgressBar, ConsoleProgressBarReporter, Reporter};
-use crate::recording::RecordingGroup;
-use crate::{concat::concatenate, recording::RecordingGroups};
-use rayon::prelude::*;
+use crate::group::{RecordingGroup, RecordingGroups};
+use crate::merge::merge;
+use crate::progress::{ConsoleProgressBarReporter, Reporter, TerminalProgressBar};
 
 use anyhow::Result;
-
-struct GroupWithProgress {
-    group: RecordingGroup,
-    pb: ConsoleProgressBar,
-}
+use rayon::prelude::*;
 
 pub fn process(
     input_path: PathBuf,
@@ -22,29 +17,32 @@ pub fn process(
 
     let data = recordings
         .into_iter()
-        .map(|group| GroupWithProgress {
-            group,
-            pb: reporter.add(100),
-        })
+        .map(|group| (reporter.add(100, group.name()), group))
         .collect::<Vec<_>>();
 
     let worker = thread::spawn(move || {
         data.into_par_iter()
-            .map(|task| {
-                concatenate(
-                    task.pb.clone(),
-                    input_path.clone(),
-                    output_path.clone(),
-                    task.group.clone(),
-                )?;
-
+            .map(|(pb, group)| {
+                merge(pb, &input_path, &output_path, group)?;
                 Ok(())
             })
-            .collect::<Result<_>>()
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok::<_, anyhow::Error>(())
     });
 
-    worker.join().expect("spawning worker thread")?;
-    reporter.wait()?;
+    let reporter = thread::spawn(move || {
+        reporter.wait()?;
+        Ok::<_, anyhow::Error>(())
+    });
+
+    [worker, reporter]
+        .into_iter()
+        .map(|handle| match handle.join() {
+            Err(err) => Err(anyhow::anyhow!("ffmpeg concatenation worker {:?}", err)),
+            _ => Ok(()),
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(())
 }

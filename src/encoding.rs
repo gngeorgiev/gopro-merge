@@ -1,7 +1,7 @@
+use std::fmt::{self, Display, Formatter};
+
 use anyhow::Result;
 use thiserror::Error;
-
-use std::fmt::{self, Display, Formatter};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -22,8 +22,12 @@ impl Encoding {
             Encoding::HEVC => "GX",
         }
     }
+}
 
-    pub fn try_from(name: &str) -> Result<Self> {
+impl TryFrom<&str> for Encoding {
+    type Error = Error;
+
+    fn try_from(name: &str) -> Result<Self, Self::Error> {
         if name.starts_with(Encoding::AVC.as_str()) {
             Ok(Encoding::AVC)
         } else if name.starts_with(Encoding::HEVC.as_str()) {

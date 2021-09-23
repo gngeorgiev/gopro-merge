@@ -1,79 +1,68 @@
-use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
-
 use std::sync::Arc;
 use std::time::Duration;
 
+use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
+
 pub trait Reporter<T> {
-    fn add(&self, len: u64) -> T;
+    fn add(&self, len: u64, prefix: String) -> T;
     fn wait(&self) -> std::io::Result<()>;
 }
 
 #[derive(Clone)]
 pub struct ConsoleProgressBarReporter {
-    pb: Arc<MultiProgress>,
+    multi: Arc<MultiProgress>,
 }
 
 impl ConsoleProgressBarReporter {
     pub fn new() -> Self {
-        let mpb = MultiProgress::new();
-        mpb.set_draw_target(ProgressDrawTarget::stdout_with_hz(60));
-        ConsoleProgressBarReporter { pb: Arc::new(mpb) }
+        ConsoleProgressBarReporter {
+            multi: Arc::new(MultiProgress::new()),
+        }
     }
 }
 
-impl Reporter<ConsoleProgressBar> for ConsoleProgressBarReporter {
-    fn add(&self, len: u64) -> ConsoleProgressBar {
-        let pb = self.pb.add(ProgressBar::new(len));
-        pb.set_style(ProgressStyle::default_bar().template("{prefix:15} {bar:40.cyan/blue} {msg}"));
-        pb.set_position(0);
-        pb.enable_steady_tick(100);
-        pb.set_message("00:00:00 / Unknown");
-
-        ConsoleProgressBar { updated: false, pb }
+impl Reporter<TerminalProgressBar> for ConsoleProgressBarReporter {
+    fn add(&self, len: u64, prefix: String) -> TerminalProgressBar {
+        let pb = self.multi.add(
+            ProgressBar::new(len)
+                .with_style(
+                    ProgressStyle::default_bar()
+                        .template("📹 {prefix:5} ⌛ {bar:70.cyan/blue} {msg}"),
+                )
+                .with_prefix(prefix),
+        );
+        TerminalProgressBar { pb }
     }
 
     fn wait(&self) -> std::io::Result<()> {
-        self.pb.join()
+        self.multi.join()
     }
 }
 
 pub trait Progress {
-    fn init(&self, prefix: &str);
     fn update(&mut self, len: Duration, progress: Duration);
     fn finish(&self);
 }
 
-#[derive(Clone)]
-pub struct ConsoleProgressBar {
-    updated: bool,
+#[derive(Clone, Debug)]
+pub struct TerminalProgressBar {
     pb: ProgressBar,
 }
 
-impl Progress for ConsoleProgressBar {
-    fn init(&self, prefix: &str) {
-        self.pb.set_prefix(prefix);
-    }
-
+impl Progress for TerminalProgressBar {
     fn update(&mut self, len: Duration, progress: Duration) {
-        if !self.updated {
-            self.pb.set_style(
-                ProgressStyle::default_bar().template("{prefix:15} {bar:40.cyan/blue} {msg}"),
-            );
-            self.pb.disable_steady_tick();
-            self.updated = true
-        }
-
         let percentage = ((progress.as_secs_f64() / len.as_secs_f64()) * 100f64).round() as u64;
         self.pb.set_position(percentage);
-        if percentage < 100 {
-            self.pb.set_message(&format!(
-                "{} / {}",
+        let message = match percentage < 100 {
+            true => format!(
+                "🕒 {} / {}",
                 FormattedDuration(progress),
                 FormattedDuration(len)
-            ));
-        } else {
-            self.pb.set_message(&format!("{}", FormattedDuration(len)));
-        }
+            ),
+            false => format!("✅ {}", FormattedDuration(len)),
+        };
+
+        self.pb.set_message(message);
     }
 
     fn finish(&self) {

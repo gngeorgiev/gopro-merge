@@ -4,16 +4,17 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use structopt::StructOpt;
+use vfs::PhysicalFS;
 
-mod concat;
 mod encoding;
 mod group;
 mod identifier;
+mod merge;
 mod processor;
 mod progress;
 mod recording;
 
-use crate::group::recording_groups;
+use crate::group::recordings;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "gopro-join")]
@@ -23,6 +24,9 @@ struct Opt {
 
     #[structopt(parse(from_os_str))]
     output: Option<PathBuf>,
+
+    #[structopt(short, long)]
+    threads: Option<usize>,
 }
 
 impl Opt {
@@ -50,10 +54,17 @@ fn main() -> Result<()> {
 
     let opt = Opt::from_args();
 
+    if let Some(threads) = opt.threads {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build_global()?;
+    }
+
     let input = opt.get_input()?;
     let output = opt.get_output()?;
 
-    let groups = recording_groups(&input)?;
+    let root = PhysicalFS::new(input.clone()).into();
+    let groups = recordings(&root)?;
     processor::process(input, output, groups)?;
 
     Ok(())
