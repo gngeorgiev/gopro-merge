@@ -5,7 +5,7 @@ use std::{collections::HashMap, path::Path};
 use crate::identifier::Identifier;
 use crate::recording::{Fingerprint, Recording};
 
-#[derive(Debug, Eq, PartialEq, Clone, PartialOrd, Ord)]
+#[derive(Debug, Eq, Clone, PartialOrd, Ord)]
 pub struct RecordingGroup {
     pub fingerprint: Fingerprint,
     pub chapters: Vec<Identifier>,
@@ -25,6 +25,12 @@ impl RecordingGroup {
             "{}{}{}.{}",
             self.fingerprint.encoding, chapter, self.fingerprint.file, self.fingerprint.extension
         )
+    }
+}
+
+impl PartialEq for RecordingGroup {
+    fn eq(&self, other: &Self) -> bool {
+        self.fingerprint == other.fingerprint
     }
 }
 

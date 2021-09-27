@@ -1,12 +1,13 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use console::style;
 use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
 
 use crate::group::RecordingGroup;
 
 pub trait Reporter<T> {
-    fn add(&self, len: u64, group: &RecordingGroup) -> T;
+    fn add(&self, len: u64, group: &RecordingGroup, index: usize, recordings_len: usize) -> T;
     fn wait(&self) -> std::io::Result<()>;
 }
 
@@ -24,17 +25,32 @@ impl ConsoleProgressBarReporter {
 }
 
 impl Reporter<TerminalProgressBar> for ConsoleProgressBarReporter {
-    fn add(&self, len: u64, group: &RecordingGroup) -> TerminalProgressBar {
+    fn add(
+        &self,
+        len: u64,
+        group: &RecordingGroup,
+        index: usize,
+        recordings_len: usize,
+    ) -> TerminalProgressBar {
         let pb = self.multi.add(
             ProgressBar::new(len)
                 .with_style(
-                    ProgressStyle::default_bar()
-                        .template("📹 {prefix:5} ⌛ {bar:70.cyan/blue} {msg}"),
+                    ProgressStyle::default_bar().template("📹 {prefix}  {bar:70.cyan/blue}  {msg}"),
                 )
                 .with_prefix(format!(
-                    "{} ({} chapters)",
-                    group.name(),
-                    group.chapters.len()
+                    "{} {}",
+                    style(format!(
+                        "{:<9}",
+                        format!("[{}/{}]", index + 1, recordings_len)
+                    ))
+                    .bold(),
+                    style(format!(
+                        "{} ({} chapters)",
+                        group.name(),
+                        group.chapters.len()
+                    ))
+                    .bold()
+                    .dim()
                 )),
         );
         TerminalProgressBar { pb, len: None }
@@ -66,16 +82,23 @@ impl Progress for TerminalProgressBar {
         let len = self.len.unwrap();
         let percentage = ((progress.as_secs_f64() / len.as_secs_f64()) * 100f64).round() as u64;
         self.pb.set_position(percentage);
-        self.pb.set_message(format!(
+        self.pb.set_message(self.message_styled(format!(
             "🕒 {} / {}",
             FormattedDuration(progress),
             FormattedDuration(len)
-        ));
+        )));
     }
 
     fn finish(&self) {
-        self.pb
-            .set_message(format!("✅ {}", FormattedDuration(self.len.unwrap())));
+        self.pb.set_message(
+            self.message_styled(format!("✅ {}", FormattedDuration(self.len.unwrap()))),
+        );
         self.pb.finish()
+    }
+}
+
+impl TerminalProgressBar {
+    fn message_styled(&self, msg: String) -> String {
+        style(msg).bold().to_string()
     }
 }

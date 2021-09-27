@@ -11,13 +11,16 @@ use rayon::prelude::*;
 pub fn process(
     input_path: PathBuf,
     output_path: PathBuf,
-    recordings: RecordingGroups,
+    mut recordings: RecordingGroups,
 ) -> Result<()> {
     let reporter = ConsoleProgressBarReporter::new();
 
+    let recordings_len = recordings.len();
+    recordings.sort();
     let data = recordings
         .into_iter()
-        .map(|group| (reporter.add(100, &group), group))
+        .enumerate()
+        .map(|(index, group)| (reporter.add(100, &group, index, recordings_len), group))
         .collect::<Vec<_>>();
 
     let worker = thread::spawn(move || {
