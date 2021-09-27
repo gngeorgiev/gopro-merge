@@ -17,7 +17,7 @@ pub fn process(
 
     let data = recordings
         .into_iter()
-        .map(|group| (reporter.add(100, group.name()), group))
+        .map(|group| (reporter.add(100, &group), group))
         .collect::<Vec<_>>();
 
     let worker = thread::spawn(move || {

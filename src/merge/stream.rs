@@ -58,7 +58,6 @@ impl<T: Read> FfprobeDurationParser<T> {
 pub struct FfmpegDurationProgressParser<'a, T: Read, P: Progress> {
     stream: Option<T>,
     pb: &'a mut P,
-    max_progress: Duration,
 }
 
 impl<'a, T: Read, P: Progress> CommandStreamDurationParser<T, ()>
@@ -70,7 +69,7 @@ impl<'a, T: Read, P: Progress> CommandStreamDurationParser<T, ()>
             |name: &str, value: &str| match name {
                 "out_time" => {
                     let progress = self.parse_timestamp_match(value)?;
-                    self.pb.update(self.max_progress, progress);
+                    self.pb.update(progress);
                     Ok(None)
                 }
                 _ => Ok(None),
@@ -82,11 +81,10 @@ impl<'a, T: Read, P: Progress> CommandStreamDurationParser<T, ()>
 }
 
 impl<'a, T: Read, P: Progress> FfmpegDurationProgressParser<'a, T, P> {
-    pub(super) fn new(stream: T, pb: &'a mut P, max_progress: Duration) -> Self {
+    pub(super) fn new(stream: T, pb: &'a mut P) -> Self {
         Self {
             stream: Some(stream),
             pb,
-            max_progress,
         }
     }
 

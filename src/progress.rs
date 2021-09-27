@@ -3,8 +3,10 @@ use std::time::Duration;
 
 use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
 
+use crate::group::RecordingGroup;
+
 pub trait Reporter<T> {
-    fn add(&self, len: u64, prefix: String) -> T;
+    fn add(&self, len: u64, group: &RecordingGroup) -> T;
     fn wait(&self) -> std::io::Result<()>;
 }
 
@@ -22,16 +24,20 @@ impl ConsoleProgressBarReporter {
 }
 
 impl Reporter<TerminalProgressBar> for ConsoleProgressBarReporter {
-    fn add(&self, len: u64, prefix: String) -> TerminalProgressBar {
+    fn add(&self, len: u64, group: &RecordingGroup) -> TerminalProgressBar {
         let pb = self.multi.add(
             ProgressBar::new(len)
                 .with_style(
                     ProgressStyle::default_bar()
                         .template("📹 {prefix:5} ⌛ {bar:70.cyan/blue} {msg}"),
                 )
-                .with_prefix(prefix),
+                .with_prefix(format!(
+                    "{} ({} chapters)",
+                    group.name(),
+                    group.chapters.len()
+                )),
         );
-        TerminalProgressBar { pb }
+        TerminalProgressBar { pb, len: None }
     }
 
     fn wait(&self) -> std::io::Result<()> {
@@ -40,32 +46,36 @@ impl Reporter<TerminalProgressBar> for ConsoleProgressBarReporter {
 }
 
 pub trait Progress {
-    fn update(&mut self, len: Duration, progress: Duration);
+    fn update(&mut self, progress: Duration);
+    fn set_len(&mut self, len: Duration);
     fn finish(&self);
 }
 
 #[derive(Clone, Debug)]
 pub struct TerminalProgressBar {
     pb: ProgressBar,
+    len: Option<Duration>,
 }
 
 impl Progress for TerminalProgressBar {
-    fn update(&mut self, len: Duration, progress: Duration) {
+    fn set_len(&mut self, len: Duration) {
+        self.len = Some(len);
+    }
+
+    fn update(&mut self, progress: Duration) {
+        let len = self.len.unwrap();
         let percentage = ((progress.as_secs_f64() / len.as_secs_f64()) * 100f64).round() as u64;
         self.pb.set_position(percentage);
-        let message = match percentage < 100 {
-            true => format!(
-                "🕒 {} / {}",
-                FormattedDuration(progress),
-                FormattedDuration(len)
-            ),
-            false => format!("✅ {}", FormattedDuration(len)),
-        };
-
-        self.pb.set_message(message);
+        self.pb.set_message(format!(
+            "🕒 {} / {}",
+            FormattedDuration(progress),
+            FormattedDuration(len)
+        ));
     }
 
     fn finish(&self) {
+        self.pb
+            .set_message(format!("✅ {}", FormattedDuration(self.len.unwrap())));
         self.pb.finish()
     }
 }

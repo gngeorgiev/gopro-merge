@@ -1,6 +1,6 @@
-use std::fs;
 use std::process::{Command, Stdio};
 use std::time::Duration;
+use std::{env::temp_dir, fs};
 use std::{io::Write, path::Path};
 use std::{ops::Add, path::PathBuf};
 
@@ -16,8 +16,6 @@ use anyhow::Context;
 use indicatif::HumanDuration;
 use log::*;
 
-static TEMP_DIR_NAME: &str = ".gpm";
-
 pub fn merge(
     pb: impl Progress,
     group: RecordingGroup,
@@ -25,7 +23,7 @@ pub fn merge(
     merged_output_path: &Path,
 ) -> Result<()> {
     let (ffmpeg_input_file, ffmpeg_input_file_path) =
-        init_ffmpeg_tmp_file(recordings_path, &group.fingerprint.file.to_string())?;
+        init_ffmpeg_tmp_file(group.fingerprint.file.to_string().as_str())?;
 
     let recordings_full_paths = group
         .chapters
@@ -61,8 +59,8 @@ pub fn merge(
     Ok(())
 }
 
-fn init_ffmpeg_tmp_file(input_path: &Path, filename: &str) -> Result<(impl Write, PathBuf)> {
-    let tmp_file_path = input_path.join(&format!(".{}.txt", filename));
+fn init_ffmpeg_tmp_file(filename: &str) -> Result<(impl Write, PathBuf)> {
+    let tmp_file_path = temp_dir().join(&format!(".{}.txt", filename));
     let tmp_file = fs::OpenOptions::new()
         .create(true)
         .write(true)
@@ -127,7 +125,8 @@ fn convert(
         .as_mut()
         .with_context(|| "getting ffmpeg stdout")?;
 
-    FfmpegDurationProgressParser::new(stdout, &mut pb, duration).parse()?;
+    pb.set_len(duration);
+    FfmpegDurationProgressParser::new(stdout, &mut pb).parse()?;
     pb.finish();
 
     if !cmd.wait()?.success() {
