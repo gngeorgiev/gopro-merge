@@ -223,7 +223,6 @@ dependencies = [
  "rayon",
  "structopt",
  "thiserror",
- "vfs",
 ]
 
 [[package]]
@@ -591,15 +590,6 @@ name = "version_check"
 version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5a972e5669d67ba988ce3dc826706fb0a8b01471c088cb0b6110b805cc36aed"
-
-[[package]]
-name = "vfs"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "feb0df0abbe81534013b326c5e3d723a2c9b06c04160fa0f7d8b4d42eb9b7052"
-dependencies = [
- "thiserror",
-]
 
 [[package]]
 name = "winapi"

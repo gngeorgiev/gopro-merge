@@ -78,10 +78,6 @@ impl Identifier {
             Kind::Loop => self.raw_value.clone(),
         }
     }
-
-    fn kind(&self) -> Kind {
-        self.kind
-    }
 }
 
 impl Display for Identifier {
@@ -136,7 +132,7 @@ mod tests {
         tests.into_iter().for_each(|test| {
             let id = Identifier::try_from(test.input).unwrap();
             assert_eq!(test.expected_string, id.string());
-            assert_eq!(test.expected_kind, id.kind());
+            assert_eq!(test.expected_kind, id.kind);
             (test.assert_numeric)(id.numeric());
         });
     }

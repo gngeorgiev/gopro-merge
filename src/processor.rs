@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 use std::thread;
 
-use crate::group::{RecordingGroup, RecordingGroups};
+use crate::group::RecordingGroups;
 use crate::merge::merge;
-use crate::progress::{ConsoleProgressBarReporter, Reporter, TerminalProgressBar};
+use crate::progress::{ConsoleProgressBarReporter, Reporter};
 
 use anyhow::Result;
 use rayon::prelude::*;
@@ -22,26 +22,17 @@ pub fn process(
 
     let worker = thread::spawn(move || {
         data.into_par_iter()
-            .map(|(pb, group)| {
-                merge(pb, &input_path, &output_path, group)?;
-                Ok(())
-            })
+            .map(|(pb, group)| merge(pb, group, &input_path, &output_path).map_err(From::from))
             .collect::<Result<Vec<_>>>()?;
 
         Ok::<_, anyhow::Error>(())
     });
 
-    let reporter = thread::spawn(move || {
-        reporter.wait()?;
-        Ok::<_, anyhow::Error>(())
-    });
+    let reporter = thread::spawn(move || reporter.wait().map_err(From::from));
 
     [worker, reporter]
         .into_iter()
-        .map(|handle| match handle.join() {
-            Err(err) => Err(anyhow::anyhow!("ffmpeg concatenation worker {:?}", err)),
-            _ => Ok(()),
-        })
+        .map(|handle| handle.join().unwrap().map_err(From::from))
         .collect::<Result<Vec<_>>>()?;
 
     Ok(())

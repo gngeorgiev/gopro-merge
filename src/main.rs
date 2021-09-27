@@ -4,8 +4,8 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use structopt::StructOpt;
-use vfs::PhysicalFS;
 
+mod converter;
 mod encoding;
 mod group;
 mod identifier;
@@ -63,8 +63,7 @@ fn main() -> Result<()> {
     let input = opt.get_input()?;
     let output = opt.get_output()?;
 
-    let root = PhysicalFS::new(input.clone()).into();
-    let groups = recordings(&root)?;
+    let groups = recordings(&input)?;
     processor::process(input, output, groups)?;
 
     Ok(())
