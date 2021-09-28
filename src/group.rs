@@ -77,9 +77,9 @@ fn groups_from_recordings(recordings: impl Iterator<Item = Recording>) -> Record
 
 #[cfg(test)]
 mod tests {
-    use crate::encoding::Encoding;
+    // use crate::encoding::Encoding;
 
-    use super::*;
+    // use super::*;
 
     // fn setup_fs(files: Vec<&'static str>) -> VfsPath {
     //     let root: VfsPath = vfs::MemoryFS::new().into();

@@ -1,5 +1,5 @@
 use std::{
-    path::Path,
+    path::PathBuf,
     process::{Child, ChildStdout, Command as Process, Stdio},
 };
 
@@ -8,6 +8,7 @@ use log::*;
 use super::{Error, Result};
 
 const FFMPEG_PROCESS_NAME: &str = "ffmpeg";
+const FFPROBE_PROCESS_NAME: &str = "ffprobe";
 
 pub trait Command
 where
@@ -18,48 +19,94 @@ where
     fn wait_success(self) -> Result<()>;
 }
 
+pub struct FFmpegOpts {
+    pub input: PathBuf,
+    pub output: PathBuf,
+}
+
+pub struct FFprobeOpts {
+    pub input: PathBuf,
+}
+
+pub enum Kind {
+    FFmpeg(FFmpegOpts),
+    FFprobe(FFprobeOpts),
+}
+
+impl Kind {
+    fn args(&self) -> Vec<&str> {
+        match self {
+            &Kind::FFmpeg(ref opts) => {
+                vec![
+                    "-f",
+                    "concat",
+                    "-safe",
+                    "0",
+                    "-y",
+                    "-i",
+                    opts.input.as_os_str().to_str().unwrap(),
+                    "-c",
+                    "copy",
+                    opts.output.as_os_str().to_str().unwrap(),
+                    "-loglevel",
+                    "error",
+                    "-progress",
+                    "pipe:1",
+                ]
+            }
+            &Kind::FFprobe(ref opts) => {
+                vec![
+                    "-i",
+                    opts.input.as_os_str().to_str().unwrap(),
+                    "-show_streams",
+                    "-loglevel",
+                    "error",
+                ]
+            }
+        }
+    }
+
+    fn process_name(&self) -> &'static str {
+        match self {
+            &Kind::FFmpeg(_) => FFMPEG_PROCESS_NAME,
+            &Kind::FFprobe(_) => FFPROBE_PROCESS_NAME,
+        }
+    }
+
+    fn file(&self) -> &str {
+        match self {
+            &Kind::FFmpeg(ref opts) => opts.input.as_os_str().to_str().unwrap(),
+            &Kind::FFprobe(ref opts) => opts.input.as_os_str().to_str().unwrap(),
+        }
+    }
+}
+
 pub struct FFmpegCommand {
+    kind: Kind,
     process: Process,
     child: Option<Child>,
-    input_file_path: Option<String>,
 }
 
 impl FFmpegCommand {
-    pub fn new<T: AsRef<Path>, E: AsRef<Path>>(input_file_path: T, output_file_path: E) -> Self {
-        let input_file_path = input_file_path.as_ref();
-        let output_file_path = output_file_path.as_ref();
-
-        let args = [
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-y",
-            "-i",
-            input_file_path.as_os_str().to_str().unwrap(),
-            "-c",
-            "copy",
-            output_file_path.as_os_str().to_str().unwrap(),
-            "-loglevel",
-            "error",
-            "-progress",
-            "pipe:1",
-        ];
+    pub fn new(kind: Kind) -> Self {
+        let args = kind.args();
 
         debug!(
             "Creating {} command with args {:?}",
-            FFMPEG_PROCESS_NAME, &args
+            kind.process_name(),
+            &args[..]
         );
-        let mut process = Process::new(FFMPEG_PROCESS_NAME);
+
+        let mut process = Process::new(kind.process_name());
         process
             .args(&args)
             .stdout(Stdio::piped())
-            .stderr(Stdio::null()); //TODO: async reading of stdout/stderr for less threads
+            .stderr(Stdio::null()); //TODO: write stdout with a cli flag
 
         FFmpegCommand {
+            kind,
             process,
             child: None,
-            input_file_path: Some(input_file_path.as_os_str().to_str().unwrap().into()),
         }
     }
 }
@@ -71,35 +118,22 @@ impl Command for FFmpegCommand {
     }
 
     fn stdout(&mut self) -> Result<&mut ChildStdout> {
-        stdout(&mut self.child, FFMPEG_PROCESS_NAME)
+        let stdout = self
+            .child
+            .as_mut()
+            .ok_or_else(|| Error::CommandNotSpawned(self.kind.process_name().into()))?
+            .stdout
+            .as_mut()
+            .ok_or_else(|| Error::NoStdout(self.kind.process_name().into()))?;
+
+        Ok(stdout)
     }
 
     fn wait_success(self) -> Result<()> {
-        wait_success(self.child, self.input_file_path)
-    }
-}
-
-fn stdout<'a>(
-    child: &'a mut Option<Child>,
-    process_name: &'static str,
-) -> Result<&'a mut ChildStdout> {
-    let stdout = child
-        .as_mut()
-        .expect("command not spawned, can not get stdout")
-        .stdout
-        .as_mut()
-        .ok_or_else(|| Error::NoStdout(process_name.into()))?;
-
-    Ok(stdout)
-}
-
-fn wait_success(child: Option<Child>, mut file: Option<String>) -> Result<()> {
-    match child
-        .expect("command not spawned, can not wait")
-        .wait()?
-        .success()
-    {
-        true => Ok(()),
-        false => Err(Error::FailedToConvert(file.take().unwrap())),
+        self.child
+            .ok_or_else(|| Error::CommandNotSpawned(self.kind.process_name().into()))?
+            .wait()?
+            .exit_ok()
+            .map_err(|err| Error::FailedToConvert(self.kind.file().into(), err))
     }
 }

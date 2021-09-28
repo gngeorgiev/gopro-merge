@@ -1,23 +1,19 @@
-use std::process::{Command, Stdio};
 use std::time::Duration;
 use std::{env::temp_dir, fs};
 use std::{io::Write, path::Path};
 use std::{ops::Add, path::PathBuf};
 
-use crate::merge::{stream::FfprobeDurationParser, Result};
-use crate::merge::{
-    stream::{CommandStreamDurationParser, FfmpegDurationProgressParser},
-    Error::{self, FailedToConvert, FailedToGetInfo},
-};
-use crate::progress::Progress;
-use crate::{
-    group::RecordingGroup,
-    merge::command::{Command as _, FFmpegCommand},
-};
-
 use anyhow::Context;
 use indicatif::HumanDuration;
 use log::*;
+
+use crate::merge::command::{Command as _, FFmpegCommand, FFprobeOpts, Kind};
+use crate::merge::stream::{
+    CommandStreamDurationParser as _, FfmpegDurationProgressParser, FfprobeDurationParser,
+};
+use crate::merge::Result;
+use crate::progress::Progress;
+use crate::{group::RecordingGroup, merge::command::FFmpegOpts};
 
 pub fn merge(
     pb: impl Progress,
@@ -100,7 +96,11 @@ fn convert(
     // https://trac.ffmpeg.org/wiki/Concatenate
     let output_file_path = output_path.join(&group.name());
 
-    let mut cmd = FFmpegCommand::new(input_file_path, output_file_path).spawn()?;
+    let mut cmd = FFmpegCommand::new(Kind::FFmpeg(FFmpegOpts {
+        input: input_file_path.into(),
+        output: output_file_path,
+    }))
+    .spawn()?;
 
     pb.set_len(duration);
     FfmpegDurationProgressParser::new(cmd.stdout()?, &mut pb).parse()?;
@@ -113,29 +113,10 @@ fn calculate_total_duration(paths: &Vec<PathBuf>) -> Result<Duration> {
     let durations: Vec<Duration> = paths
         .into_iter()
         .map(|path| {
-            let mut cmd = Command::new("ffprobe")
-                .args(&[
-                    "-i",
-                    path.as_os_str().to_str().unwrap(),
-                    "-show_streams",
-                    "-loglevel",
-                    "error",
-                ])
-                .stdout(Stdio::piped())
-                .spawn()
-                .with_context(|| "spawing ffmpeg info")?;
-
-            let stdout = cmd
-                .stdout
-                .as_mut()
-                .with_context(|| "getting ffprobe stdout")?;
-
-            let duration = FfprobeDurationParser::new(stdout).parse()?;
-            if !cmd.wait()?.success() {
-                return Err(FailedToGetInfo(path.as_os_str().to_str().unwrap().into()));
-            }
-
-            Ok::<_, Error>(duration)
+            let mut cmd =
+                FFmpegCommand::new(Kind::FFprobe(FFprobeOpts { input: path.into() })).spawn()?;
+            let duration = FfprobeDurationParser::new(cmd.stdout()?).parse()?;
+            cmd.wait_success().map(|_| duration)
         })
         .collect::<Result<_>>()?;
 

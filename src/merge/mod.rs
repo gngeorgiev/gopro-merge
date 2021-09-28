@@ -2,7 +2,7 @@ mod command;
 pub mod merge;
 mod stream;
 
-use std::{io, num::ParseIntError};
+use std::{io, num::ParseIntError, process::ExitStatusError};
 
 pub use merge::*;
 
@@ -10,11 +10,8 @@ type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Failed to get ffmpeg info {0}")]
-    FailedToGetInfo(String),
-
-    #[error("Failed to convert recording {0}")]
-    FailedToConvert(String),
+    #[error("Failed to convert recording {0}, exit status {1}")]
+    FailedToConvert(String, ExitStatusError),
 
     #[error("Invalid ffmpeg output line {0}")]
     InvalidOutputLine(String),
@@ -30,4 +27,7 @@ pub enum Error {
 
     #[error("Cannot get stdout stream for command {0}")]
     NoStdout(String),
+
+    #[error("Command not spawned {0}")]
+    CommandNotSpawned(String),
 }
