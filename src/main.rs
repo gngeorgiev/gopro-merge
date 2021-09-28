@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use anyhow::Result;
 use structopt::StructOpt;
 
-mod converter;
 mod encoding;
 mod group;
 mod identifier;
@@ -14,7 +13,7 @@ mod processor;
 mod progress;
 mod recording;
 
-use crate::group::recordings;
+use crate::{group::recordings, processor::process};
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "gopro-join")]
@@ -64,7 +63,7 @@ fn main() -> Result<()> {
     let output = opt.get_output()?;
 
     let groups = recordings(&input)?;
-    processor::process(input, output, groups)?;
+    process(input, output, groups)?;
 
     Ok(())
 }

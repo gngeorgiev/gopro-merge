@@ -1,3 +1,4 @@
+mod command;
 pub mod merge;
 mod stream;
 
@@ -26,4 +27,7 @@ pub enum Error {
 
     #[error(transparent)]
     IO(#[from] io::Error),
+
+    #[error("Cannot get stdout stream for command {0}")]
+    NoStdout(String),
 }

@@ -57,19 +57,16 @@ fn collect_recordings(path: &Path) -> Result<impl Iterator<Item = Recording>> {
 
 fn groups_from_recordings(recordings: impl Iterator<Item = Recording>) -> RecordingGroups {
     recordings
-        .fold(
-            HashMap::<Fingerprint, RecordingGroup>::new(),
-            |mut acc, rec| {
-                let group = acc
-                    .entry(rec.fingerprint.clone())
-                    .or_insert_with(|| RecordingGroup {
-                        fingerprint: rec.fingerprint.clone(),
-                        chapters: vec![],
-                    });
-                group.chapters.push(rec.chapter);
-                acc
-            },
-        )
+        .fold(HashMap::new(), |mut acc, rec| {
+            let group = acc
+                .entry(rec.fingerprint.clone())
+                .or_insert_with(|| RecordingGroup {
+                    fingerprint: rec.fingerprint.clone(),
+                    chapters: vec![],
+                });
+            group.chapters.push(rec.chapter);
+            acc
+        })
         .drain()
         .map(|(_, mut v)| {
             v.chapters.sort();

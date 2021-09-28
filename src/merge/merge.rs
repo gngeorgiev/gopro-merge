@@ -4,13 +4,16 @@ use std::{env::temp_dir, fs};
 use std::{io::Write, path::Path};
 use std::{ops::Add, path::PathBuf};
 
-use crate::group::RecordingGroup;
 use crate::merge::{stream::FfprobeDurationParser, Result};
 use crate::merge::{
     stream::{CommandStreamDurationParser, FfmpegDurationProgressParser},
     Error::{self, FailedToConvert, FailedToGetInfo},
 };
 use crate::progress::Progress;
+use crate::{
+    group::RecordingGroup,
+    merge::command::{Command as _, FFmpegCommand},
+};
 
 use anyhow::Context;
 use indicatif::HumanDuration;
@@ -96,44 +99,14 @@ fn convert(
 ) -> Result<()> {
     // https://trac.ffmpeg.org/wiki/Concatenate
     let output_file_path = output_path.join(&group.name());
-    let args = [
-        "-f",
-        "concat",
-        "-safe",
-        "0",
-        "-y",
-        "-i",
-        input_file_path.as_os_str().to_str().unwrap(),
-        "-c",
-        "copy",
-        output_file_path.as_os_str().to_str().unwrap(),
-        "-loglevel",
-        "error",
-        "-progress",
-        "pipe:1",
-    ];
-    debug!("Starting ffmpeg command with args {:?}", &args);
-    let mut cmd = Command::new("ffmpeg")
-        .args(&args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null()) //TODO: async reading of stdout/stderr for less threads
-        .spawn()
-        .with_context(|| "starting ffmpeg convert process")?;
 
-    let stdout = cmd
-        .stdout
-        .as_mut()
-        .with_context(|| "getting ffmpeg stdout")?;
+    let mut cmd = FFmpegCommand::new(input_file_path, output_file_path).spawn()?;
 
     pb.set_len(duration);
-    FfmpegDurationProgressParser::new(stdout, &mut pb).parse()?;
+    FfmpegDurationProgressParser::new(cmd.stdout()?, &mut pb).parse()?;
     pb.finish();
 
-    if !cmd.wait()?.success() {
-        return Err(FailedToConvert(group.name()));
-    }
-
-    Ok(())
+    cmd.wait_success()
 }
 
 fn calculate_total_duration(paths: &Vec<PathBuf>) -> Result<Duration> {
