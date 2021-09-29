@@ -6,8 +6,16 @@ use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
 
 use crate::group::RecordingGroup;
 
-pub trait Reporter<T> {
-    fn add(&self, len: u64, group: &RecordingGroup, index: usize, recordings_len: usize) -> T;
+pub trait Reporter {
+    type Progress;
+
+    fn add(
+        &self,
+        len: u64,
+        group: &RecordingGroup,
+        index: usize,
+        recordings_len: usize,
+    ) -> Self::Progress;
     fn wait(&self) -> std::io::Result<()>;
 }
 
@@ -24,14 +32,16 @@ impl ConsoleProgressBarReporter {
     }
 }
 
-impl Reporter<TerminalProgressBar> for ConsoleProgressBarReporter {
+impl Reporter for ConsoleProgressBarReporter {
+    type Progress = TerminalProgressBar;
+
     fn add(
         &self,
         len: u64,
         group: &RecordingGroup,
         index: usize,
         recordings_len: usize,
-    ) -> TerminalProgressBar {
+    ) -> Self::Progress {
         let pb = self.multi.add(
             ProgressBar::new(len)
                 .with_style(

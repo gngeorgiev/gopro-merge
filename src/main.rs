@@ -15,7 +15,8 @@ mod processor;
 mod progress;
 mod recording;
 
-use crate::{group::recordings, processor::process};
+use crate::processor::Processor;
+use crate::{group::recordings, progress::ConsoleProgressBarReporter};
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "gopro-join")]
@@ -64,10 +65,11 @@ fn main() -> Result<()> {
     let input = opt.get_input()?;
     let output = opt.get_output()?;
 
-    let groups = recordings(&input)?;
-    process(input, output, groups)?;
+    let recordings = recordings(&input)?;
+    let processor =
+        Processor::new(input, output, recordings).with_reporter(ConsoleProgressBarReporter::new());
 
-    Ok(())
+    processor.process().map_err(From::from)
 }
 
 #[cfg(test)]
