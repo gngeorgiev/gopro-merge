@@ -54,23 +54,26 @@ where
         let mut recordings = self.recordings.take().unwrap();
         recordings.sort();
         let recordings_len = recordings.len();
+        let input = self.input.take().unwrap();
+        let output = self.output.take().unwrap();
+
         let recordings = recordings
             .into_iter()
             .enumerate()
             .map(|(index, recording)| {
-                (
-                    reporter.add(100, &recording, index, recordings_len),
+                merge::Merger::new(
+                    reporter.add(&recording, index, recordings_len),
                     recording,
+                    input.clone().into(),
+                    output.clone().into(),
                 )
             })
             .collect::<Vec<_>>();
 
-        let input = self.input.take().unwrap();
-        let output = self.output.take().unwrap();
         let worker = thread::spawn(move || {
             recordings
                 .into_par_iter()
-                .map(|(pb, group)| merge::merge(pb, group, &input, &output).map_err(Error::from))
+                .map(|merger| merger.merge().map_err(Error::from))
                 .collect::<Result<Vec<_>>>()?;
 
             Ok(())

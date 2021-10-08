@@ -7,7 +7,6 @@ use crate::merge::Error::{self};
 use crate::merge::Result;
 use crate::progress::Progress;
 
-use anyhow::Context;
 use log::*;
 
 pub trait CommandStreamDurationParser<T: Read, V: Default> {
@@ -81,9 +80,9 @@ impl<'a, T: Read, P: Progress> CommandStreamDurationParser<T, ()>
 }
 
 impl<'a, T: Read, P: Progress> FfmpegDurationProgressParser<'a, T, P> {
-    pub(super) fn new(stream: T, pb: &'a mut P) -> Self {
+    pub fn new(stream: T, pb: &'a mut P) -> Self {
         Self {
-            stream: Some(stream),
+            stream: stream.into(),
             pb,
         }
     }
@@ -118,10 +117,9 @@ fn parse_command_stream<V: Default>(
     mut parse: impl FnMut(&str, &str) -> Result<Option<V>>,
 ) -> Result<V> {
     let stdout_reader = BufReader::new(stream);
-    let lines = stdout_reader.lines();
+    let mut lines = stdout_reader.lines();
 
-    for line in lines {
-        let line = line.with_context(|| "reading stream output line")?;
+    while let Some(Ok(line)) = lines.next() {
         trace!("get_duration_from_command_stream line {}", &line);
         let mut split = line.split("=");
 

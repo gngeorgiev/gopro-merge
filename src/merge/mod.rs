@@ -16,9 +16,6 @@ pub enum Error {
     #[error("Invalid ffmpeg output line {0}")]
     InvalidOutputLine(String),
 
-    #[error(transparent)]
-    Anyhow(#[from] anyhow::Error),
-
     #[error("Parsing ffmpeg output line {0}")]
     ParseIntError(#[from] ParseIntError),
 

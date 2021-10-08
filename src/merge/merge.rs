@@ -3,7 +3,6 @@ use std::{env::temp_dir, fs};
 use std::{io::Write, path::Path};
 use std::{ops::Add, path::PathBuf};
 
-use anyhow::Context;
 use indicatif::HumanDuration;
 use log::*;
 
@@ -15,47 +14,75 @@ use crate::merge::Result;
 use crate::progress::Progress;
 use crate::{group::RecordingGroup, merge::command::FFmpegOpts};
 
-pub fn merge(
-    pb: impl Progress,
+pub struct Merger<P> {
+    progress: P,
     group: RecordingGroup,
-    recordings_path: &Path,
-    merged_output_path: &Path,
-) -> Result<()> {
-    let (ffmpeg_input_file, ffmpeg_input_file_path) =
-        init_ffmpeg_tmp_file(group.fingerprint.file.to_string().as_str())?;
+    recordings_path: PathBuf,
+    merged_output_path: PathBuf,
+}
 
-    let recordings_full_paths = group
-        .chapters
-        .iter()
-        .map(|chapter| recordings_path.join(&group.chapter_file_name(chapter)))
-        .collect::<Vec<_>>();
+impl<P> Merger<P>
+where
+    P: Progress,
+{
+    pub fn new(
+        progress: P,
+        group: RecordingGroup,
+        recordings_path: PathBuf,
+        merged_output_path: PathBuf,
+    ) -> Self {
+        Merger {
+            progress,
+            group,
+            recordings_path,
+            merged_output_path,
+        }
+    }
 
-    debug!(
-        "Writing recordings to ffmpeg input file {}",
-        &ffmpeg_input_file_path.as_os_str().to_str().unwrap(),
-    );
-    write_recordings_to_input_file(ffmpeg_input_file, &recordings_full_paths)?;
+    pub fn merge(&self) -> Result<()> {
+        let Self {
+            progress,
+            group,
+            recordings_path,
+            merged_output_path,
+        } = self;
 
-    debug!("Calculating total duration for group {}", group.name());
-    let duration = calculate_total_duration(&recordings_full_paths)?;
-    debug!(
-        "Total duration for group {} is {:?} ({})",
-        group.name(),
-        duration,
-        HumanDuration(duration)
-    );
+        let (ffmpeg_input_file, ffmpeg_input_file_path) =
+            init_ffmpeg_tmp_file(group.fingerprint.file.to_string().as_str())?;
 
-    convert(
-        pb,
-        &ffmpeg_input_file_path,
-        &merged_output_path,
-        duration,
-        &group,
-    )?;
+        let recordings_full_paths = group
+            .chapters
+            .iter()
+            .map(|chapter| recordings_path.join(&group.chapter_file_name(chapter)))
+            .collect::<Vec<_>>();
 
-    fs::remove_file(ffmpeg_input_file_path)?;
+        debug!(
+            "Writing recordings to ffmpeg input file {}",
+            &ffmpeg_input_file_path.as_os_str().to_str().unwrap(),
+        );
+        write_recordings_to_input_file(ffmpeg_input_file, &recordings_full_paths)?;
 
-    Ok(())
+        debug!("Calculating total duration for group {}", group.name());
+        let duration = calculate_total_duration(&recordings_full_paths)?;
+        debug!(
+            "Total duration for group {} is {:?} ({})",
+            group.name(),
+            duration,
+            HumanDuration(duration)
+        );
+
+        convert(
+            progress.clone(),
+            &ffmpeg_input_file_path,
+            &merged_output_path,
+            duration,
+            &group,
+        )?;
+
+        fs::remove_file(ffmpeg_input_file_path)?;
+
+        Ok(())
+    }
 }
 
 fn init_ffmpeg_tmp_file(filename: &str) -> Result<(impl Write, PathBuf)> {
@@ -80,14 +107,13 @@ fn write_recordings_to_input_file(
                 "file '{}'\r\n",
                 path.as_os_str().to_str().unwrap()
             )
-            .with_context(|| "writing to ffmpeg input file")
             .map_err(From::from)
         })
         .collect()
 }
 
 fn convert(
-    mut pb: impl Progress,
+    mut progress: impl Progress,
     input_file_path: &Path,
     output_path: &Path,
     duration: Duration,
@@ -102,9 +128,9 @@ fn convert(
     }))
     .spawn()?;
 
-    pb.set_len(duration);
-    FfmpegDurationProgressParser::new(cmd.stdout()?, &mut pb).parse()?;
-    pb.finish();
+    progress.set_len(duration);
+    FfmpegDurationProgressParser::new(cmd.stdout()?, &mut progress).parse()?;
+    progress.finish();
 
     cmd.wait_success()
 }

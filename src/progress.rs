@@ -9,13 +9,7 @@ use crate::group::RecordingGroup;
 pub trait Reporter {
     type Progress;
 
-    fn add(
-        &self,
-        len: u64,
-        group: &RecordingGroup,
-        index: usize,
-        recordings_len: usize,
-    ) -> Self::Progress;
+    fn add(&self, group: &RecordingGroup, index: usize, recordings_len: usize) -> Self::Progress;
     fn wait(&self) -> std::io::Result<()>;
 }
 
@@ -35,15 +29,9 @@ impl ConsoleProgressBarReporter {
 impl Reporter for ConsoleProgressBarReporter {
     type Progress = TerminalProgressBar;
 
-    fn add(
-        &self,
-        len: u64,
-        group: &RecordingGroup,
-        index: usize,
-        recordings_len: usize,
-    ) -> Self::Progress {
+    fn add(&self, group: &RecordingGroup, index: usize, recordings_len: usize) -> Self::Progress {
         let pb = self.multi.add(
-            ProgressBar::new(len)
+            ProgressBar::new(100)
                 .with_style(
                     ProgressStyle::default_bar().template("📹 {prefix}  {bar:70.cyan/blue}  {msg}"),
                 )
@@ -71,7 +59,7 @@ impl Reporter for ConsoleProgressBarReporter {
     }
 }
 
-pub trait Progress {
+pub trait Progress: Clone {
     fn update(&mut self, progress: Duration);
     fn set_len(&mut self, len: Duration);
     fn finish(&self);
