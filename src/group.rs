@@ -1,9 +1,22 @@
-use anyhow::Result;
 use std::convert::TryFrom;
+use std::io;
 use std::{collections::HashMap, path::Path};
 
+use thiserror::Error;
+
 use crate::identifier::Identifier;
-use crate::recording::{Fingerprint, Recording};
+use crate::recording::{self, Fingerprint, Recording};
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    Recording(#[from] recording::Error),
+
+    #[error(transparent)]
+    IO(#[from] io::Error),
+}
+
+type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Eq, Clone, PartialOrd, Ord)]
 pub struct RecordingGroup {

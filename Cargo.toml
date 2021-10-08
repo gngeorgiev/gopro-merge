@@ -8,7 +8,6 @@ edition = "2021"
 
 [dependencies]
 structopt = "0.3.23"
-anyhow = "1.0.44"
 thiserror = "1.0.29"
 rayon = "1.5.1"
 log = "0.4.14"
@@ -18,3 +17,6 @@ defmac = "0.2.1"
 color-backtrace = "0.5.1"
 indicatif = "0.16.2"
 console = "0.14.1"
+
+[dev-dependencies]
+anyhow = "1.0.44"

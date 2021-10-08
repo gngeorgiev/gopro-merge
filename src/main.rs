@@ -4,7 +4,6 @@ use std::env;
 
 use std::path::PathBuf;
 
-use anyhow::Result;
 use structopt::StructOpt;
 
 mod encoding;
@@ -30,6 +29,8 @@ struct Opt {
     #[structopt(short, long)]
     threads: Option<usize>,
 }
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + 'static>>;
 
 impl Opt {
     fn get_input(&self) -> Result<PathBuf> {

@@ -22,9 +22,6 @@ pub enum Error {
 
     #[error(transparent)]
     Encoding(#[from] encoding::Error),
-
-    #[error(":?")]
-    Inner(#[from] anyhow::Error),
 }
 
 #[derive(Debug, Eq, PartialOrd, PartialEq, Ord, Hash, Clone)]
