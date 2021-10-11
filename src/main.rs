@@ -32,7 +32,7 @@ struct Opt {
     #[structopt(short, long)]
     parallel: Option<usize>,
 
-    /// The reporter to be used for progress. Possible values are "json" and "progressbar".
+    /// The reporter to be used for progress one of "json" | "progressbar"
     #[structopt(default_value = "progressbar", short, long)]
     reporter: OptReporter,
 }
