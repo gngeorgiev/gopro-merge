@@ -6,7 +6,7 @@ use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
 
 use crate::group::RecordingGroup;
 
-pub trait Reporter {
+pub trait Reporter: Clone {
     type Progress;
 
     fn add(&self, group: &RecordingGroup, index: usize, recordings_len: usize) -> Self::Progress;

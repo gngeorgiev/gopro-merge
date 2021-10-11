@@ -31,7 +31,7 @@ pub struct Processor<R> {
 
 impl<R> Processor<R>
 where
-    R: Reporter + Sized + Send + Clone + 'static,
+    R: Reporter + Sized + Send + 'static,
     R::Progress: Progress + Send + 'static,
 {
     pub fn new(input: PathBuf, output: PathBuf, recordings: RecordingGroups) -> Self {
