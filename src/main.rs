@@ -17,6 +17,9 @@ mod movie;
 mod processor;
 mod progress;
 
+type Error = Box<dyn std::error::Error + 'static>;
+type Result<T> = std::result::Result<T, Error>;
+
 #[derive(StructOpt, Debug, Default)]
 #[structopt(name = "gopro-merge")]
 struct Opt {
@@ -60,9 +63,6 @@ impl Default for OptReporter {
         OptReporter::ProgressBar
     }
 }
-
-type Error = Box<dyn std::error::Error + 'static>;
-type Result<T> = std::result::Result<T, Error>;
 
 impl Opt {
     // Only the first calls of get_input and get_output produce expected results, no intended to be called twice
