@@ -90,201 +90,231 @@ fn groups_from_recordings(recordings: impl Iterator<Item = Recording>) -> Record
 
 #[cfg(test)]
 mod tests {
-    // use crate::encoding::Encoding;
+    use super::*;
+    use std::env;
+    use std::fs;
+    use std::path::PathBuf;
 
-    // use super::*;
+    use crate::encoding::Encoding;
 
-    // fn setup_fs(files: Vec<&'static str>) -> VfsPath {
-    //     let root: VfsPath = vfs::MemoryFS::new().into();
-    //     files.into_iter().for_each(|f| {
-    //         root.join(f).unwrap().create_file().unwrap();
-    //     });
+    #[derive(Debug)]
+    struct Fs(PathBuf, Vec<PathBuf>);
 
-    //     root
-    // }
+    struct Test<T> {
+        files: Vec<&'static str>,
+        expected: Vec<T>,
 
-    // #[test]
-    // fn test_collect_recordings() {
-    //     struct Test {
-    //         fs: VfsPath,
-    //         expected: Vec<Recording>,
-    //     }
+        fs: Option<Fs>,
+    }
 
-    //     let tests = vec![
-    //         Test {
-    //             fs: setup_fs(vec!["GH011234.mp4"]),
-    //             expected: vec![Recording {
-    //                 fingerprint: Fingerprint {
-    //                     encoding: Encoding::AVC,
-    //                     file: Identifier::try_from("1234").unwrap(),
-    //                     extension: "mp4".into(),
-    //                 },
-    //                 chapter: Identifier::try_from("01").unwrap(),
-    //             }],
-    //         },
-    //         Test {
-    //             fs: setup_fs(vec!["GH011234.mp4", "GH021234.mp4"]),
-    //             expected: vec![
-    //                 Recording {
-    //                     fingerprint: Fingerprint {
-    //                         encoding: Encoding::AVC,
-    //                         file: Identifier::try_from("1234").unwrap(),
-    //                         extension: "mp4".into(),
-    //                     },
-    //                     chapter: Identifier::try_from("01").unwrap(),
-    //                 },
-    //                 Recording {
-    //                     fingerprint: Fingerprint {
-    //                         encoding: Encoding::AVC,
-    //                         file: Identifier::try_from("1234").unwrap(),
-    //                         extension: "mp4".into(),
-    //                     },
-    //                     chapter: Identifier::try_from("02").unwrap(),
-    //                 },
-    //             ],
-    //         },
-    //         Test {
-    //             fs: setup_fs(vec![
-    //                 "GH011234.mp4",
-    //                 "GH021234.mp4",
-    //                 "file.png",
-    //                 "random.mp4",
-    //                 "aaaa",
-    //                 "111111",
-    //             ]),
-    //             expected: vec![
-    //                 Recording {
-    //                     fingerprint: Fingerprint {
-    //                         encoding: Encoding::AVC,
-    //                         file: Identifier::try_from("1234").unwrap(),
-    //                         extension: "mp4".into(),
-    //                     },
-    //                     chapter: Identifier::try_from("01").unwrap(),
-    //                 },
-    //                 Recording {
-    //                     fingerprint: Fingerprint {
-    //                         encoding: Encoding::AVC,
-    //                         file: Identifier::try_from("1234").unwrap(),
-    //                         extension: "mp4".into(),
-    //                     },
-    //                     chapter: Identifier::try_from("02").unwrap(),
-    //                 },
-    //             ],
-    //         },
-    //         Test {
-    //             fs: setup_fs(vec!["GHAA0001.mp4", "GHAA0002.mp4"]),
-    //             expected: vec![
-    //                 Recording {
-    //                     fingerprint: Fingerprint {
-    //                         encoding: Encoding::AVC,
-    //                         file: Identifier::try_from("0001").unwrap(),
-    //                         extension: "mp4".into(),
-    //                     },
-    //                     chapter: Identifier::try_from("AA").unwrap(),
-    //                 },
-    //                 Recording {
-    //                     fingerprint: Fingerprint {
-    //                         encoding: Encoding::AVC,
-    //                         file: Identifier::try_from("0002").unwrap(),
-    //                         extension: "mp4".into(),
-    //                     },
-    //                     chapter: Identifier::try_from("AA").unwrap(),
-    //                 },
-    //             ],
-    //         },
-    //         Test {
-    //             fs: setup_fs(vec!["GH011234.mp4", "GX011234.mp4"]),
-    //             expected: vec![
-    //                 Recording {
-    //                     fingerprint: Fingerprint {
-    //                         encoding: Encoding::AVC,
-    //                         file: Identifier::try_from("1234").unwrap(),
-    //                         extension: "mp4".into(),
-    //                     },
-    //                     chapter: Identifier::try_from("01").unwrap(),
-    //                 },
-    //                 Recording {
-    //                     fingerprint: Fingerprint {
-    //                         encoding: Encoding::HEVC,
-    //                         file: Identifier::try_from("1234").unwrap(),
-    //                         extension: "mp4".into(),
-    //                     },
-    //                     chapter: Identifier::try_from("01").unwrap(),
-    //                 },
-    //             ],
-    //         },
-    //     ];
+    impl<T> Test<T> {
+        fn new(files: Vec<&'static str>, expected: Vec<T>) -> Self {
+            Test {
+                files: files,
+                expected: expected,
+                fs: None,
+            }
+        }
 
-    //     tests.into_iter().for_each(|mut test| {
-    //         let mut recordings = collect_recordings(&test.fs).unwrap().collect::<Vec<_>>();
-    //         recordings.sort();
+        fn setup_fs(&mut self, dir_postfix: &str) {
+            let tmp = env::temp_dir().join(format!("goprotest_group_{}", dir_postfix));
+            fs::create_dir_all(&tmp).unwrap();
+            fs::read_dir(&tmp).unwrap().for_each(|f| {
+                fs::remove_file(f.unwrap().path()).unwrap();
+            });
 
-    //         test.expected.sort();
+            let paths = self
+                .files
+                .iter()
+                .map(|f| {
+                    let p = tmp.join(f);
+                    fs::File::create(&p).unwrap();
+                    p
+                })
+                .collect();
 
-    //         assert_eq!(
-    //             test.expected, recordings,
-    //             "collected recordings didn't match"
-    //         );
-    //     });
-    // }
+            self.fs = Fs(tmp, paths).into();
+        }
+    }
 
-    // #[test]
-    // fn test_recordings() {
-    //     struct Test {
-    //         fs: VfsPath,
-    //         expected: RecordingGroups,
-    //     }
+    #[test]
+    fn test_collect_recordings() {
+        let tests = vec![
+            Test::new(
+                vec!["GH011234.mp4"],
+                vec![Recording {
+                    fingerprint: Fingerprint {
+                        encoding: Encoding::AVC,
+                        file: Identifier::try_from("1234").unwrap(),
+                        extension: "mp4".into(),
+                    },
+                    chapter: Identifier::try_from("01").unwrap(),
+                }],
+            ),
+            Test::new(
+                vec!["GH011234.mp4", "GH021234.mp4"],
+                vec![
+                    Recording {
+                        fingerprint: Fingerprint {
+                            encoding: Encoding::AVC,
+                            file: Identifier::try_from("1234").unwrap(),
+                            extension: "mp4".into(),
+                        },
+                        chapter: Identifier::try_from("01").unwrap(),
+                    },
+                    Recording {
+                        fingerprint: Fingerprint {
+                            encoding: Encoding::AVC,
+                            file: Identifier::try_from("1234").unwrap(),
+                            extension: "mp4".into(),
+                        },
+                        chapter: Identifier::try_from("02").unwrap(),
+                    },
+                ],
+            ),
+            Test::new(
+                vec![
+                    "GH011234.mp4",
+                    "GH021234.mp4",
+                    "file.png",
+                    "random.mp4",
+                    "aaaa",
+                    "111111",
+                ],
+                vec![
+                    Recording {
+                        fingerprint: Fingerprint {
+                            encoding: Encoding::AVC,
+                            file: Identifier::try_from("1234").unwrap(),
+                            extension: "mp4".into(),
+                        },
+                        chapter: Identifier::try_from("01").unwrap(),
+                    },
+                    Recording {
+                        fingerprint: Fingerprint {
+                            encoding: Encoding::AVC,
+                            file: Identifier::try_from("1234").unwrap(),
+                            extension: "mp4".into(),
+                        },
+                        chapter: Identifier::try_from("02").unwrap(),
+                    },
+                ],
+            ),
+            Test::new(
+                vec!["GHAA0001.mp4", "GHAA0002.mp4"],
+                vec![
+                    Recording {
+                        fingerprint: Fingerprint {
+                            encoding: Encoding::AVC,
+                            file: Identifier::try_from("0001").unwrap(),
+                            extension: "mp4".into(),
+                        },
+                        chapter: Identifier::try_from("AA").unwrap(),
+                    },
+                    Recording {
+                        fingerprint: Fingerprint {
+                            encoding: Encoding::AVC,
+                            file: Identifier::try_from("0002").unwrap(),
+                            extension: "mp4".into(),
+                        },
+                        chapter: Identifier::try_from("AA").unwrap(),
+                    },
+                ],
+            ),
+            Test::new(
+                vec!["GH011234.mp4", "GX011234.mp4"],
+                vec![
+                    Recording {
+                        fingerprint: Fingerprint {
+                            encoding: Encoding::AVC,
+                            file: Identifier::try_from("1234").unwrap(),
+                            extension: "mp4".into(),
+                        },
+                        chapter: Identifier::try_from("01").unwrap(),
+                    },
+                    Recording {
+                        fingerprint: Fingerprint {
+                            encoding: Encoding::HEVC,
+                            file: Identifier::try_from("1234").unwrap(),
+                            extension: "mp4".into(),
+                        },
+                        chapter: Identifier::try_from("01").unwrap(),
+                    },
+                ],
+            ),
+        ];
 
-    //     let tests = vec![
-    //         Test {
-    //             fs: setup_fs(vec!["GH011234.mp4", "GH021234.mp4"]),
-    //             expected: vec![RecordingGroup {
-    //                 fingerprint: Fingerprint {
-    //                     encoding: Encoding::AVC,
-    //                     extension: "mp4".into(),
-    //                     file: "1234".try_into().unwrap(),
-    //                 },
-    //                 chapters: vec![
-    //                     Identifier::try_from("01").unwrap(),
-    //                     Identifier::try_from("02").unwrap(),
-    //                 ],
-    //             }],
-    //         },
-    //         Test {
-    //             fs: setup_fs(vec![
-    //                 "GH011234.mp4",
-    //                 "GH021234.mp4",
-    //                 "GX011235.flv",
-    //                 "GH001111.mp4",
-    //             ]),
-    //             expected: vec![
-    //                 RecordingGroup {
-    //                     fingerprint: Fingerprint {
-    //                         encoding: Encoding::AVC,
-    //                         extension: "mp4".into(),
-    //                         file: "1234".try_into().unwrap(),
-    //                     },
-    //                     chapters: vec![
-    //                         Identifier::try_from("01").unwrap(),
-    //                         Identifier::try_from("02").unwrap(),
-    //                     ],
-    //                 },
-    //                 RecordingGroup {
-    //                     fingerprint: Fingerprint {
-    //                         encoding: Encoding::HEVC,
-    //                         extension: "flv".into(),
-    //                         file: "1235".try_into().unwrap(),
-    //                     },
-    //                     chapters: vec![Identifier::try_from("01").unwrap()],
-    //                 },
-    //             ],
-    //         },
-    //     ];
+        tests.into_iter().for_each(|mut test| {
+            test.setup_fs("test_collect_recordings");
 
-    //     tests.into_iter().for_each(|t| {
-    //         let mut result = recordings(&t.fs).unwrap();
-    //         result.sort();
-    //         assert_eq!(t.expected, result);
-    //     });
-    // }
+            let fs = test.fs.as_ref().unwrap();
+            let mut recordings = collect_recordings(&fs.0).unwrap().collect::<Vec<_>>();
+            recordings.sort();
+
+            test.expected.sort();
+
+            assert_eq!(
+                test.expected, recordings,
+                "collected recordings didn't match"
+            );
+        });
+    }
+
+    #[test]
+    fn test_recordings() {
+        let tests = vec![
+            Test::new(
+                vec!["GH011234.mp4", "GH021234.mp4"],
+                vec![RecordingGroup {
+                    fingerprint: Fingerprint {
+                        encoding: Encoding::AVC,
+                        extension: "mp4".into(),
+                        file: "1234".try_into().unwrap(),
+                    },
+                    chapters: vec![
+                        Identifier::try_from("01").unwrap(),
+                        Identifier::try_from("02").unwrap(),
+                    ],
+                }],
+            ),
+            Test::new(
+                vec![
+                    "GH011234.mp4",
+                    "GH021234.mp4",
+                    "GX011235.flv",
+                    "GH001111.mp4",
+                ],
+                vec![
+                    RecordingGroup {
+                        fingerprint: Fingerprint {
+                            encoding: Encoding::AVC,
+                            extension: "mp4".into(),
+                            file: "1234".try_into().unwrap(),
+                        },
+                        chapters: vec![
+                            Identifier::try_from("01").unwrap(),
+                            Identifier::try_from("02").unwrap(),
+                        ],
+                    },
+                    RecordingGroup {
+                        fingerprint: Fingerprint {
+                            encoding: Encoding::HEVC,
+                            extension: "flv".into(),
+                            file: "1235".try_into().unwrap(),
+                        },
+                        chapters: vec![Identifier::try_from("01").unwrap()],
+                    },
+                ],
+            ),
+        ];
+
+        tests.into_iter().for_each(|mut t| {
+            t.setup_fs("test_recordings");
+
+            let fs = t.fs.as_ref().unwrap();
+            let mut result = recordings(&fs.0).unwrap();
+            result.sort();
+            assert_eq!(t.expected, result);
+        });
+    }
 }
