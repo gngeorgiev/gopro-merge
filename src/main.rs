@@ -23,7 +23,7 @@ type Result<T> = std::result::Result<T, Error>;
 #[derive(StructOpt, Debug, Default)]
 #[structopt(name = "gopro-merge")]
 struct Opt {
-    // Directory where to read movies from. [default: current directory]
+    /// Directory where to read movies from. [default: current directory]
     #[structopt(parse(from_os_str))]
     input: Option<PathBuf>,
 
@@ -35,7 +35,7 @@ struct Opt {
     #[structopt(short, long)]
     parallel: Option<usize>,
 
-    /// The reporter to be used for progress one of "json" | "progressbar"
+    /// The reporter to be used for progress one of "json" | "progressbar".
     #[structopt(default_value = "progressbar", short, long)]
     reporter: OptReporter,
 }
