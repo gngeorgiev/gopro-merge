@@ -1,16 +1,32 @@
+use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
 use console::style;
+use crossbeam_channel::{bounded, Receiver, Sender};
 use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
+use parking_lot::{Mutex, RwLock};
+use serde_json::json;
+use thiserror::Error;
 
 use crate::group::RecordingGroup;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error(transparent)]
+    Recv(#[from] crossbeam_channel::RecvError),
+
+    #[error(transparent)]
+    Io(#[from] io::Error),
+}
+
+type Result<T> = std::result::Result<T, Error>;
 
 pub trait Reporter: Clone {
     type Progress;
 
     fn add(&self, group: &RecordingGroup, index: usize, recordings_len: usize) -> Self::Progress;
-    fn wait(&self) -> std::io::Result<()>;
+    fn wait(&self) -> Result<()>;
 }
 
 #[derive(Clone)]
@@ -54,8 +70,8 @@ impl Reporter for ConsoleProgressBarReporter {
         TerminalProgressBar { pb, len: None }
     }
 
-    fn wait(&self) -> std::io::Result<()> {
-        self.multi.join()
+    fn wait(&self) -> Result<()> {
+        self.multi.join().map_err(From::from)
     }
 }
 
@@ -77,26 +93,160 @@ impl Progress for TerminalProgressBar {
     }
 
     fn update(&mut self, progress: Duration) {
-        let len = self.len.unwrap();
-        let percentage = ((progress.as_secs_f64() / len.as_secs_f64()) * 100f64).round() as u64;
-        self.pb.set_position(percentage);
+        self.pb
+            .set_position(calculate_percentage(self.len(), progress));
         self.pb.set_message(self.message_styled(format!(
             "🕒 {} / {}",
             FormattedDuration(progress),
-            FormattedDuration(len)
+            FormattedDuration(self.len())
         )));
     }
 
     fn finish(&self) {
-        self.pb.set_message(
-            self.message_styled(format!("✅ {}", FormattedDuration(self.len.unwrap()))),
+        self.pb.finish_with_message(
+            self.message_styled(format!("✅ {}", FormattedDuration(self.len()))),
         );
-        self.pb.finish()
     }
 }
 
 impl TerminalProgressBar {
     fn message_styled(&self, msg: String) -> String {
         style(msg).bold().to_string()
+    }
+
+    fn len(&self) -> Duration {
+        self.len.expect("progress len not set")
+    }
+}
+
+fn calculate_percentage(len: Duration, progress: Duration) -> u64 {
+    ((progress.as_secs_f64() / len.as_secs_f64()) * 100f64).round() as u64
+}
+
+#[derive(Clone)]
+pub struct JsonProgressReporter {
+    progresses: Arc<Mutex<Vec<JsonProgress>>>,
+}
+
+impl JsonProgressReporter {
+    pub fn new() -> Self {
+        JsonProgressReporter {
+            progresses: Arc::new(Mutex::new(vec![])),
+        }
+    }
+}
+
+impl Reporter for JsonProgressReporter {
+    type Progress = JsonProgress;
+
+    fn add(&self, group: &RecordingGroup, index: usize, recordings_len: usize) -> Self::Progress {
+        let p = JsonProgress::new(group.name(), group.chapters.len(), index, recordings_len);
+        self.progresses.lock().push(p.clone());
+        p
+    }
+
+    fn wait(&self) -> Result<()> {
+        let progresses = self.progresses.lock();
+        progresses
+            .iter()
+            .map(|p| p.chan.1.recv().map_err(From::from))
+            .collect::<Result<Vec<_>>>()
+            .map(|_| ())
+    }
+}
+
+#[derive(Clone)]
+pub struct JsonProgress {
+    inner: Arc<RwLock<JsonProgressInner>>,
+    chan: (Sender<()>, Receiver<()>),
+}
+
+impl Progress for JsonProgress {
+    fn set_len(&mut self, len: Duration) {
+        self.inner.write().len = len.into();
+    }
+
+    fn update(&mut self, progress: Duration) {
+        self.print(
+            progress,
+            calculate_percentage(self.inner.read().len.expect("len not set"), progress),
+        );
+    }
+
+    fn finish(&self) {
+        self.chan.0.send(()).unwrap();
+    }
+}
+
+impl JsonProgress {
+    fn new(name: String, chapters: usize, index: usize, all_recordings: usize) -> Self {
+        JsonProgress {
+            inner: Arc::new(RwLock::new(JsonProgressInner {
+                name,
+                chapters,
+                index,
+                all_recordings,
+                len: None,
+            })),
+            chan: bounded(1),
+        }
+    }
+
+    fn print(&self, progress: Duration, progress_percentage: u64) {
+        let inner = self.inner.read();
+
+        let json_data = json!({
+            "name": inner.name,
+            "chapters": inner.chapters,
+            "index": inner.index,
+            "len": FormattedDuration(inner.len.expect("len not set: print")).to_string(),
+            "all_recordings": inner.all_recordings,
+            "progress_time": FormattedDuration(progress).to_string(),
+            "progress_percentage": progress_percentage,
+        });
+
+        //TODO: This should probabaly write to a selected stream in the future and be fallible
+        println!("{}", json_data);
+    }
+}
+
+struct JsonProgressInner {
+    name: String,
+    chapters: usize,
+    index: usize,
+    all_recordings: usize,
+    len: Option<Duration>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_calculate_percentage() {
+        fn test_case<T: Into<f64>>(
+            len: T,
+            progress: T,
+            expected: u64,
+        ) -> (Duration, Duration, u64) {
+            (
+                Duration::from_secs_f64(len.into()),
+                Duration::from_secs_f64(progress.into()),
+                expected,
+            )
+        }
+
+        let tests = vec![
+            test_case(9, 3, 33),
+            test_case(10, 3, 30),
+            test_case(10, 5, 50),
+            test_case(100, 5, 5),
+            test_case(33, 10, 30),
+        ];
+
+        tests.into_iter().for_each(|(len, progress, expected)| {
+            let result = calculate_percentage(len, progress);
+            assert_eq!(result, expected);
+        });
     }
 }

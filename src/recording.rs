@@ -1,5 +1,4 @@
 use std::convert::TryFrom;
-use std::fmt;
 
 use crate::encoding::{self, Encoding};
 use crate::identifier::{self, Identifier};

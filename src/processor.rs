@@ -3,9 +3,10 @@ use std::path::PathBuf;
 use std::thread;
 
 use crate::merge;
-use crate::progress::Reporter;
+use crate::progress::{self, Reporter};
 use crate::{group::RecordingGroups, progress::Progress};
 
+use log::*;
 use rayon::prelude::*;
 
 type Result<T> = std::result::Result<T, Error>;
@@ -14,6 +15,9 @@ type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error(transparent)]
     Merge(#[from] merge::Error),
+
+    #[error(transparent)]
+    Progress(#[from] progress::Error),
 
     #[error(transparent)]
     IO(#[from] io::Error),
@@ -61,6 +65,7 @@ where
             .into_iter()
             .enumerate()
             .map(|(index, recording)| {
+                debug!("adding recording {} {:?}", index, recording);
                 merge::Merger::new(
                     reporter.add(&recording, index, recordings_len),
                     recording,

@@ -1,10 +1,13 @@
 #![feature(exit_status_error)]
 
-use std::{env, path::Path};
-
 use std::path::PathBuf;
+use std::{env, path::Path, str::FromStr};
 
+use log::*;
 use structopt::StructOpt;
+
+use crate::{group::recordings, progress::ConsoleProgressBarReporter};
+use crate::{processor::Processor, progress::JsonProgressReporter};
 
 mod encoding;
 mod group;
@@ -14,23 +17,52 @@ mod processor;
 mod progress;
 mod recording;
 
-use crate::processor::Processor;
-use crate::{group::recordings, progress::ConsoleProgressBarReporter};
-
 #[derive(StructOpt, Debug, Default)]
 #[structopt(name = "gopro-join")]
 struct Opt {
+    // Directory where to read movies from. [default: current directory]
     #[structopt(parse(from_os_str))]
     input: Option<PathBuf>,
 
+    /// Directory where to write merged movies. [default: <input>]
     #[structopt(parse(from_os_str))]
     output: Option<PathBuf>,
 
+    /// The amount of parallel movies to be merged. [default: amount of cores]
     #[structopt(short, long)]
     parallel: Option<usize>,
+
+    /// The reporter to be used for progress. Possible values are "json" and "progressbar".
+    #[structopt(default_value = "progressbar", short, long)]
+    reporter: OptReporter,
 }
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error + 'static>>;
+#[derive(Debug, PartialEq, Eq)]
+enum OptReporter {
+    Json,
+    ProgressBar,
+}
+
+impl FromStr for OptReporter {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        Ok(match s {
+            "json" => OptReporter::Json,
+            "progressbar" => OptReporter::ProgressBar,
+            _ => OptReporter::ProgressBar,
+        })
+    }
+}
+
+impl Default for OptReporter {
+    fn default() -> Self {
+        OptReporter::ProgressBar
+    }
+}
+
+type Error = Box<dyn std::error::Error + 'static>;
+type Result<T> = std::result::Result<T, Error>;
 
 impl Opt {
     // Only the first calls of get_input and get_output produce expected results, no intended to be called twice
@@ -71,10 +103,23 @@ fn main() -> Result<()> {
     let output = opt.get_output(wd.as_path())?;
 
     let recordings = recordings(&input)?;
-    let processor =
-        Processor::new(input, output, recordings).with_reporter(ConsoleProgressBarReporter::new());
+    debug!("collected recordings: {:?}", recordings);
 
-    processor.process().map_err(From::from)
+    match opt.reporter {
+        OptReporter::ProgressBar => {
+            debug!("starting processor with progress bar reporter");
+            Processor::new(input, output, recordings)
+                .with_reporter(ConsoleProgressBarReporter::new())
+                .process()
+        }
+        OptReporter::Json => {
+            debug!("starting processor with json reporter");
+            Processor::new(input, output, recordings)
+                .with_reporter(JsonProgressReporter::new())
+                .process()
+        }
+    }
+    .map_err(From::from)
 }
 
 #[cfg(test)]
@@ -138,5 +183,18 @@ mod tests {
 
         opt.parallel = None;
         assert_eq!(0, opt.get_parallel());
+    }
+
+    #[test]
+    fn test_opt_reporter() {
+        let tests = vec![
+            ("json", OptReporter::Json),
+            ("progressbar", OptReporter::ProgressBar),
+            ("0r3938413", OptReporter::ProgressBar),
+        ];
+
+        tests.into_iter().for_each(|(input, expected)| {
+            assert_eq!(expected, OptReporter::from_str(input).unwrap());
+        })
     }
 }

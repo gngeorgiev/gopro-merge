@@ -2,6 +2,7 @@ use std::convert::TryFrom;
 use std::io;
 use std::{collections::HashMap, path::Path};
 
+use log::*;
 use thiserror::Error;
 
 use crate::identifier::Identifier;
@@ -61,9 +62,14 @@ fn collect_recordings(path: &Path) -> Result<impl Iterator<Item = Recording>> {
         .map(|f| f.map_err(From::from))
         .collect::<Result<Vec<_>>>()?;
 
-    let recordings = files
-        .into_iter()
-        .filter_map(|rec| Recording::try_from(rec.file_name().to_str().unwrap()).ok());
+    let recordings = files.into_iter().filter_map(|rec| {
+        let file_name = rec.file_name();
+        let name = file_name.to_str().unwrap();
+        debug!("trying to parse file with name {}", name);
+        let parsed = Recording::try_from(name).ok();
+        debug!("parsed file with name {}: {:?}", name, parsed);
+        parsed
+    });
 
     Ok(recordings)
 }
