@@ -18,7 +18,7 @@ mod processor;
 mod progress;
 
 #[derive(StructOpt, Debug, Default)]
-#[structopt(name = "gopro-join")]
+#[structopt(name = "gopro-merge")]
 struct Opt {
     // Directory where to read movies from. [default: current directory]
     #[structopt(parse(from_os_str))]
