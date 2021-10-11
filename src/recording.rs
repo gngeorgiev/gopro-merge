@@ -93,7 +93,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn recoding_try_from() {
+    fn recoding_try_from_format() {
         let ok_input = vec![
             (
                 "GH010034.mp4",
@@ -120,6 +120,7 @@ mod tests {
         ];
         ok_input.into_iter().for_each(|(input, expected)| {
             let parsed = Recording::try_from(input).unwrap();
+            assert_eq!(input, &parsed.to_string());
             assert_eq!(expected, parsed);
         });
     }
