@@ -1,5 +1,6 @@
-use std::fmt::{self, Display, Formatter};
 use std::num;
+
+use derive_more::Display;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum Kind {
@@ -37,7 +38,8 @@ impl TryFrom<&str> for Kind {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Hash, Clone, Display)]
+#[display(fmt = "{}", "self.string()")]
 pub struct Identifier {
     raw_value: String,
     kind: Kind,
@@ -77,12 +79,6 @@ impl Identifier {
             Kind::File => format!("{:0>4}", self.raw_value),
             Kind::Loop => self.raw_value.clone(),
         }
-    }
-}
-
-impl Display for Identifier {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.string())
     }
 }
 

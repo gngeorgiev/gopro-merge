@@ -4,6 +4,7 @@ use std::fmt;
 use crate::encoding::{self, Encoding};
 use crate::identifier::{self, Identifier};
 
+use derive_more::Display;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -31,7 +32,14 @@ pub struct Fingerprint {
     pub extension: String,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Display)]
+#[display(
+    fmt = "{}{}{}.{}",
+    "fingerprint.encoding",
+    chapter,
+    "fingerprint.file",
+    "fingerprint.extension"
+)]
 pub struct Recording {
     pub fingerprint: Fingerprint,
     pub chapter: Identifier,
@@ -72,19 +80,6 @@ impl<'a> TryFrom<&'a str> for Recording {
         };
 
         Ok(recording)
-    }
-}
-
-impl fmt::Display for Recording {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}{}{}.{}",
-            self.fingerprint.encoding,
-            self.chapter,
-            self.fingerprint.file,
-            self.fingerprint.extension
-        )
     }
 }
 

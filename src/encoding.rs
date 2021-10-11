@@ -1,5 +1,4 @@
-use std::fmt::{self, Display, Formatter};
-
+use derive_more::Display;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -8,9 +7,11 @@ pub enum Error {
     InvalidEncoding(String),
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Display)]
 pub enum Encoding {
+    #[display(fmt = "GH")]
     AVC,
+    #[display(fmt = "GX")]
     HEVC,
 }
 
@@ -34,12 +35,6 @@ impl TryFrom<&str> for Encoding {
         } else {
             Err(Error::InvalidEncoding(name.into()).into())
         }
-    }
-}
-
-impl Display for Encoding {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
     }
 }
 
