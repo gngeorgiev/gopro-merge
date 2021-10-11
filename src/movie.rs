@@ -11,11 +11,11 @@ pub enum Error {
     #[error("Invalid file name {0}. Valid GoPro file names formats can be found here: https://community.gopro.com/t5/en/GoPro-Camera-File-Naming-Convention/ta-p/390220#")]
     InvalidFileName(String),
 
-    #[error("Invalid recording file number 0. Non loop file numbers should be numeric in the range of 01-99")]
-    InvalidRecordingFileNumberZero,
+    #[error("Invalid movie file number 0. Non loop file numbers should be numeric in the range of 01-99")]
+    InvalidMovieFileNumberZero,
 
-    #[error("Invalid recording chapter number 0. Non loop file numbers should be numeric in the range of 0001-9999")]
-    InvalidRecordingChapterNumberZero,
+    #[error("Invalid movie chapter number 0. Non loop file numbers should be numeric in the range of 0001-9999")]
+    InvalidMovieChapterNumberZero,
 
     #[error(transparent)]
     Identifier(#[from] identifier::Error),
@@ -39,12 +39,12 @@ pub struct Fingerprint {
     "fingerprint.file",
     "fingerprint.extension"
 )]
-pub struct Recording {
+pub struct Movie {
     pub fingerprint: Fingerprint,
     pub chapter: Identifier,
 }
 
-impl<'a> TryFrom<&'a str> for Recording {
+impl<'a> TryFrom<&'a str> for Movie {
     type Error = Error;
 
     fn try_from(name: &'a str) -> std::result::Result<Self, Self::Error> {
@@ -61,15 +61,15 @@ impl<'a> TryFrom<&'a str> for Recording {
         let encoding = Encoding::try_from(name)?;
         let file = Identifier::try_from(&name[4..])?;
         if let Ok(0) = file.numeric() {
-            return Err(Error::InvalidRecordingFileNumberZero);
+            return Err(Error::InvalidMovieFileNumberZero);
         }
 
         let chapter = Identifier::try_from(&name[2..4])?;
         if let Ok(0) = chapter.numeric() {
-            return Err(Error::InvalidRecordingChapterNumberZero);
+            return Err(Error::InvalidMovieChapterNumberZero);
         }
 
-        let recording = Recording {
+        let movie = Movie {
             fingerprint: Fingerprint {
                 encoding,
                 file: file.clone(),
@@ -78,7 +78,7 @@ impl<'a> TryFrom<&'a str> for Recording {
             chapter,
         };
 
-        Ok(recording)
+        Ok(movie)
     }
 }
 
@@ -91,7 +91,7 @@ mod tests {
         let ok_input = vec![
             (
                 "GH010034.mp4",
-                Recording {
+                Movie {
                     fingerprint: Fingerprint {
                         encoding: Encoding::AVC,
                         file: Identifier::try_from("0034").unwrap(),
@@ -102,7 +102,7 @@ mod tests {
             ),
             (
                 "GX111134.flv",
-                Recording {
+                Movie {
                     fingerprint: Fingerprint {
                         encoding: Encoding::HEVC,
                         file: Identifier::try_from("1134").unwrap(),
@@ -113,14 +113,14 @@ mod tests {
             ),
         ];
         ok_input.into_iter().for_each(|(input, expected)| {
-            let parsed = Recording::try_from(input).unwrap();
+            let parsed = Movie::try_from(input).unwrap();
             assert_eq!(input, &parsed.to_string());
             assert_eq!(expected, parsed);
         });
     }
 
     #[test]
-    fn recording_try_from_err() {
+    fn movie_try_from_err() {
         let not_ok_input = vec![
             "invalid_dots_amount..",
             "name_longer_than_8_chars_.mp4",
@@ -135,7 +135,7 @@ mod tests {
             "GH000001.mp4",
         ];
         not_ok_input.into_iter().for_each(|input| {
-            assert!(Recording::try_from(input).is_err(), "{} isn't error", input,);
+            assert!(Movie::try_from(input).is_err(), "{} isn't error", input,);
         });
     }
 }

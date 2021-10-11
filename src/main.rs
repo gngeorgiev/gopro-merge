@@ -6,16 +6,16 @@ use std::{env, path::Path, str::FromStr};
 use log::*;
 use structopt::StructOpt;
 
-use crate::{group::recordings, progress::ConsoleProgressBarReporter};
+use crate::{group::movies, progress::ConsoleProgressBarReporter};
 use crate::{processor::Processor, progress::JsonProgressReporter};
 
 mod encoding;
 mod group;
 mod identifier;
 mod merge;
+mod movie;
 mod processor;
 mod progress;
-mod recording;
 
 #[derive(StructOpt, Debug, Default)]
 #[structopt(name = "gopro-join")]
@@ -102,19 +102,19 @@ fn main() -> Result<()> {
     let input = opt.get_input(wd.as_path())?;
     let output = opt.get_output(wd.as_path())?;
 
-    let recordings = recordings(&input)?;
-    debug!("collected recordings: {:?}", recordings);
+    let movies = movies(&input)?;
+    debug!("collected movies: {:?}", movies);
 
     match opt.reporter {
         OptReporter::ProgressBar => {
             debug!("starting processor with progress bar reporter");
-            Processor::new(input, output, recordings)
+            Processor::new(input, output, movies)
                 .with_reporter(ConsoleProgressBarReporter::new())
                 .process()
         }
         OptReporter::Json => {
             debug!("starting processor with json reporter");
-            Processor::new(input, output, recordings)
+            Processor::new(input, output, movies)
                 .with_reporter(JsonProgressReporter::new())
                 .process()
         }

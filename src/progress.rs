@@ -9,7 +9,7 @@ use parking_lot::{Mutex, RwLock};
 use serde_json::json;
 use thiserror::Error;
 
-use crate::group::RecordingGroup;
+use crate::group::MovieGroup;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -25,7 +25,7 @@ type Result<T> = std::result::Result<T, Error>;
 pub trait Reporter: Clone {
     type Progress;
 
-    fn add(&self, group: &RecordingGroup, index: usize, recordings_len: usize) -> Self::Progress;
+    fn add(&self, group: &MovieGroup, index: usize, movies_len: usize) -> Self::Progress;
     fn wait(&self) -> Result<()>;
 }
 
@@ -45,7 +45,7 @@ impl ConsoleProgressBarReporter {
 impl Reporter for ConsoleProgressBarReporter {
     type Progress = TerminalProgressBar;
 
-    fn add(&self, group: &RecordingGroup, index: usize, recordings_len: usize) -> Self::Progress {
+    fn add(&self, group: &MovieGroup, index: usize, movies_len: usize) -> Self::Progress {
         let pb = self.multi.add(
             ProgressBar::new(100)
                 .with_style(
@@ -53,11 +53,7 @@ impl Reporter for ConsoleProgressBarReporter {
                 )
                 .with_prefix(format!(
                     "{} {}",
-                    style(format!(
-                        "{:<9}",
-                        format!("[{}/{}]", index + 1, recordings_len)
-                    ))
-                    .bold(),
+                    style(format!("{:<9}", format!("[{}/{}]", index + 1, movies_len))).bold(),
                     style(format!(
                         "{} ({} chapters)",
                         group.name(),
@@ -139,8 +135,8 @@ impl JsonProgressReporter {
 impl Reporter for JsonProgressReporter {
     type Progress = JsonProgress;
 
-    fn add(&self, group: &RecordingGroup, index: usize, recordings_len: usize) -> Self::Progress {
-        let p = JsonProgress::new(group.name(), group.chapters.len(), index, recordings_len);
+    fn add(&self, group: &MovieGroup, index: usize, movies_len: usize) -> Self::Progress {
+        let p = JsonProgress::new(group.name(), group.chapters.len(), index, movies_len);
         self.progresses.lock().push(p.clone());
         p
     }
@@ -179,13 +175,13 @@ impl Progress for JsonProgress {
 }
 
 impl JsonProgress {
-    fn new(name: String, chapters: usize, index: usize, all_recordings: usize) -> Self {
+    fn new(name: String, chapters: usize, index: usize, all_movies: usize) -> Self {
         JsonProgress {
             inner: Arc::new(RwLock::new(JsonProgressInner {
                 name,
                 chapters,
                 index,
-                all_recordings,
+                all_movies,
                 len: None,
             })),
             chan: bounded(1),
@@ -200,7 +196,7 @@ impl JsonProgress {
             "chapters": inner.chapters,
             "index": inner.index,
             "len": FormattedDuration(inner.len.expect("len not set: print")).to_string(),
-            "all_recordings": inner.all_recordings,
+            "all_movies": inner.all_movies,
             "progress_time": FormattedDuration(progress).to_string(),
             "progress_percentage": progress_percentage,
         });
@@ -214,7 +210,7 @@ struct JsonProgressInner {
     name: String,
     chapters: usize,
     index: usize,
-    all_recordings: usize,
+    all_movies: usize,
     len: Option<Duration>,
 }
 

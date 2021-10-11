@@ -6,12 +6,12 @@ use log::*;
 use thiserror::Error;
 
 use crate::identifier::Identifier;
-use crate::recording::{self, Fingerprint, Recording};
+use crate::movie::{self, Fingerprint, Movie};
 
 #[derive(Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Recording(#[from] recording::Error),
+    Movie(#[from] movie::Error),
 
     #[error(transparent)]
     IO(#[from] io::Error),
@@ -20,12 +20,12 @@ pub enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Eq, Clone, PartialOrd, Ord)]
-pub struct RecordingGroup {
+pub struct MovieGroup {
     pub fingerprint: Fingerprint,
     pub chapters: Vec<Identifier>,
 }
 
-impl RecordingGroup {
+impl MovieGroup {
     pub fn name(&self) -> String {
         self.file_name("00")
     }
@@ -42,44 +42,44 @@ impl RecordingGroup {
     }
 }
 
-impl PartialEq for RecordingGroup {
+impl PartialEq for MovieGroup {
     fn eq(&self, other: &Self) -> bool {
         self.fingerprint == other.fingerprint
     }
 }
 
-pub type RecordingGroups = Vec<RecordingGroup>;
+pub type MovieGroups = Vec<MovieGroup>;
 
-pub fn recordings(path: &Path) -> Result<RecordingGroups> {
-    let recordings = collect_recordings(path)?;
-    Ok(groups_from_recordings(recordings))
+pub fn movies(path: &Path) -> Result<MovieGroups> {
+    let movies = collect_movies(path)?;
+    Ok(groups_from_movies(movies))
 }
 
-fn collect_recordings(path: &Path) -> Result<impl Iterator<Item = Recording>> {
+fn collect_movies(path: &Path) -> Result<impl Iterator<Item = Movie>> {
     let files = path
         .read_dir()?
         .into_iter()
         .map(|f| f.map_err(From::from))
         .collect::<Result<Vec<_>>>()?;
 
-    let recordings = files.into_iter().filter_map(|rec| {
+    let movies = files.into_iter().filter_map(|rec| {
         let file_name = rec.file_name();
         let name = file_name.to_str().unwrap();
         debug!("trying to parse file with name {}", name);
-        let parsed = Recording::try_from(name).ok();
+        let parsed = Movie::try_from(name).ok();
         debug!("parsed file with name {}: {:?}", name, parsed);
         parsed
     });
 
-    Ok(recordings)
+    Ok(movies)
 }
 
-fn groups_from_recordings(recordings: impl Iterator<Item = Recording>) -> RecordingGroups {
-    recordings
+fn groups_from_movies(movies: impl Iterator<Item = Movie>) -> MovieGroups {
+    movies
         .fold(HashMap::new(), |mut acc, rec| {
             let group = acc
                 .entry(rec.fingerprint.clone())
-                .or_insert_with(|| RecordingGroup {
+                .or_insert_with(|| MovieGroup {
                     fingerprint: rec.fingerprint.clone(),
                     chapters: vec![],
                 });
@@ -91,7 +91,7 @@ fn groups_from_recordings(recordings: impl Iterator<Item = Recording>) -> Record
             v.chapters.sort();
             v
         })
-        .collect::<RecordingGroups>()
+        .collect::<MovieGroups>()
 }
 
 #[cfg(test)]
@@ -144,11 +144,11 @@ mod tests {
     }
 
     #[test]
-    fn test_collect_recordings() {
+    fn test_collect_movies() {
         let tests = vec![
             Test::new(
                 vec!["GH011234.mp4"],
-                vec![Recording {
+                vec![Movie {
                     fingerprint: Fingerprint {
                         encoding: Encoding::AVC,
                         file: Identifier::try_from("1234").unwrap(),
@@ -160,7 +160,7 @@ mod tests {
             Test::new(
                 vec!["GH011234.mp4", "GH021234.mp4"],
                 vec![
-                    Recording {
+                    Movie {
                         fingerprint: Fingerprint {
                             encoding: Encoding::AVC,
                             file: Identifier::try_from("1234").unwrap(),
@@ -168,7 +168,7 @@ mod tests {
                         },
                         chapter: Identifier::try_from("01").unwrap(),
                     },
-                    Recording {
+                    Movie {
                         fingerprint: Fingerprint {
                             encoding: Encoding::AVC,
                             file: Identifier::try_from("1234").unwrap(),
@@ -188,7 +188,7 @@ mod tests {
                     "111111",
                 ],
                 vec![
-                    Recording {
+                    Movie {
                         fingerprint: Fingerprint {
                             encoding: Encoding::AVC,
                             file: Identifier::try_from("1234").unwrap(),
@@ -196,7 +196,7 @@ mod tests {
                         },
                         chapter: Identifier::try_from("01").unwrap(),
                     },
-                    Recording {
+                    Movie {
                         fingerprint: Fingerprint {
                             encoding: Encoding::AVC,
                             file: Identifier::try_from("1234").unwrap(),
@@ -209,7 +209,7 @@ mod tests {
             Test::new(
                 vec!["GHAA0001.mp4", "GHAA0002.mp4"],
                 vec![
-                    Recording {
+                    Movie {
                         fingerprint: Fingerprint {
                             encoding: Encoding::AVC,
                             file: Identifier::try_from("0001").unwrap(),
@@ -217,7 +217,7 @@ mod tests {
                         },
                         chapter: Identifier::try_from("AA").unwrap(),
                     },
-                    Recording {
+                    Movie {
                         fingerprint: Fingerprint {
                             encoding: Encoding::AVC,
                             file: Identifier::try_from("0002").unwrap(),
@@ -230,7 +230,7 @@ mod tests {
             Test::new(
                 vec!["GH011234.mp4", "GX011234.mp4"],
                 vec![
-                    Recording {
+                    Movie {
                         fingerprint: Fingerprint {
                             encoding: Encoding::AVC,
                             file: Identifier::try_from("1234").unwrap(),
@@ -238,7 +238,7 @@ mod tests {
                         },
                         chapter: Identifier::try_from("01").unwrap(),
                     },
-                    Recording {
+                    Movie {
                         fingerprint: Fingerprint {
                             encoding: Encoding::HEVC,
                             file: Identifier::try_from("1234").unwrap(),
@@ -251,27 +251,24 @@ mod tests {
         ];
 
         tests.into_iter().for_each(|mut test| {
-            test.setup_fs("test_collect_recordings");
+            test.setup_fs("test_collect_movies");
 
             let fs = test.fs.as_ref().unwrap();
-            let mut recordings = collect_recordings(&fs.0).unwrap().collect::<Vec<_>>();
-            recordings.sort();
+            let mut movies = collect_movies(&fs.0).unwrap().collect::<Vec<_>>();
+            movies.sort();
 
             test.expected.sort();
 
-            assert_eq!(
-                test.expected, recordings,
-                "collected recordings didn't match"
-            );
+            assert_eq!(test.expected, movies, "collected movies didn't match");
         });
     }
 
     #[test]
-    fn test_recordings() {
+    fn test_movies() {
         let tests = vec![
             Test::new(
                 vec!["GH011234.mp4", "GH021234.mp4"],
-                vec![RecordingGroup {
+                vec![MovieGroup {
                     fingerprint: Fingerprint {
                         encoding: Encoding::AVC,
                         extension: "mp4".into(),
@@ -291,7 +288,7 @@ mod tests {
                     "GH001111.mp4",
                 ],
                 vec![
-                    RecordingGroup {
+                    MovieGroup {
                         fingerprint: Fingerprint {
                             encoding: Encoding::AVC,
                             extension: "mp4".into(),
@@ -302,7 +299,7 @@ mod tests {
                             Identifier::try_from("02").unwrap(),
                         ],
                     },
-                    RecordingGroup {
+                    MovieGroup {
                         fingerprint: Fingerprint {
                             encoding: Encoding::HEVC,
                             extension: "flv".into(),
@@ -315,10 +312,10 @@ mod tests {
         ];
 
         tests.into_iter().for_each(|mut t| {
-            t.setup_fs("test_recordings");
+            t.setup_fs("test_movies");
 
             let fs = t.fs.as_ref().unwrap();
-            let mut result = recordings(&fs.0).unwrap();
+            let mut result = movies(&fs.0).unwrap();
             result.sort();
             assert_eq!(t.expected, result);
         });

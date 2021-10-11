@@ -4,7 +4,7 @@ use std::thread;
 
 use crate::merge;
 use crate::progress::{self, Reporter};
-use crate::{group::RecordingGroups, progress::Progress};
+use crate::{group::MovieGroups, progress::Progress};
 
 use log::*;
 use rayon::prelude::*;
@@ -29,7 +29,7 @@ pub enum Error {
 pub struct Processor<R> {
     input: Option<PathBuf>,
     output: Option<PathBuf>,
-    recordings: Option<RecordingGroups>,
+    movies: Option<MovieGroups>,
     reporter: Option<R>,
 }
 
@@ -38,11 +38,11 @@ where
     R: Reporter + Sized + Send + 'static,
     R::Progress: Progress + Send + 'static,
 {
-    pub fn new(input: PathBuf, output: PathBuf, recordings: RecordingGroups) -> Self {
+    pub fn new(input: PathBuf, output: PathBuf, movies: MovieGroups) -> Self {
         Self {
             input: Some(input),
             output: Some(output),
-            recordings: Some(recordings),
+            movies: Some(movies),
             reporter: None,
         }
     }
@@ -55,20 +55,20 @@ where
     pub fn process(mut self) -> Result<()> {
         let reporter = self.get_reporter()?;
 
-        let mut recordings = self.recordings.take().unwrap();
-        recordings.sort();
-        let recordings_len = recordings.len();
+        let mut movies = self.movies.take().unwrap();
+        movies.sort();
+        let movies_len = movies.len();
         let input = self.input.take().unwrap();
         let output = self.output.take().unwrap();
 
-        let recordings = recordings
+        let movies = movies
             .into_iter()
             .enumerate()
-            .map(|(index, recording)| {
-                debug!("adding recording {} {:?}", index, recording);
+            .map(|(index, movie)| {
+                debug!("adding movie {} {:?}", index, movie);
                 merge::Merger::new(
-                    reporter.add(&recording, index, recordings_len),
-                    recording,
+                    reporter.add(&movie, index, movies_len),
+                    movie,
                     input.clone().into(),
                     output.clone().into(),
                 )
@@ -76,7 +76,7 @@ where
             .collect::<Vec<_>>();
 
         let worker = thread::spawn(move || {
-            recordings
+            movies
                 .into_par_iter()
                 .map(|merger| merger.merge().map_err(Error::from))
                 .collect::<Result<Vec<_>>>()?;

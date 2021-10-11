@@ -12,12 +12,12 @@ use crate::merge::stream::{
 };
 use crate::merge::Result;
 use crate::progress::Progress;
-use crate::{group::RecordingGroup, merge::command::FFmpegOpts};
+use crate::{group::MovieGroup, merge::command::FFmpegOpts};
 
 pub struct Merger<P> {
     progress: P,
-    group: RecordingGroup,
-    recordings_path: PathBuf,
+    group: MovieGroup,
+    movies_path: PathBuf,
     merged_output_path: PathBuf,
 }
 
@@ -27,14 +27,14 @@ where
 {
     pub fn new(
         progress: P,
-        group: RecordingGroup,
-        recordings_path: PathBuf,
+        group: MovieGroup,
+        movies_path: PathBuf,
         merged_output_path: PathBuf,
     ) -> Self {
         Merger {
             progress,
             group,
-            recordings_path,
+            movies_path,
             merged_output_path,
         }
     }
@@ -43,27 +43,27 @@ where
         let Self {
             progress,
             group,
-            recordings_path,
+            movies_path,
             merged_output_path,
         } = self;
 
         let (ffmpeg_input_file, ffmpeg_input_file_path) =
             init_ffmpeg_tmp_file(group.fingerprint.file.to_string().as_str())?;
 
-        let recordings_full_paths = group
+        let movies_full_paths = group
             .chapters
             .iter()
-            .map(|chapter| recordings_path.join(&group.chapter_file_name(chapter)))
+            .map(|chapter| movies_path.join(&group.chapter_file_name(chapter)))
             .collect::<Vec<_>>();
 
         debug!(
-            "Writing recordings to ffmpeg input file {}",
+            "Writing movies to ffmpeg input file {}",
             &ffmpeg_input_file_path.as_os_str().to_str().unwrap(),
         );
-        write_recordings_to_input_file(ffmpeg_input_file, &recordings_full_paths)?;
+        write_movies_to_input_file(ffmpeg_input_file, &movies_full_paths)?;
 
         debug!("Calculating total duration for group {}", group.name());
-        let duration = calculate_total_duration(&recordings_full_paths)?;
+        let duration = calculate_total_duration(&movies_full_paths)?;
         debug!(
             "Total duration for group {} is {:?} ({})",
             group.name(),
@@ -95,11 +95,11 @@ fn init_ffmpeg_tmp_file(filename: &str) -> Result<(impl Write, PathBuf)> {
     Ok((tmp_file, tmp_file_path))
 }
 
-fn write_recordings_to_input_file(
+fn write_movies_to_input_file(
     mut input_file: impl Write,
-    recordings_paths: &Vec<PathBuf>,
+    movies_paths: &Vec<PathBuf>,
 ) -> Result<()> {
-    recordings_paths
+    movies_paths
         .iter()
         .map(|path| {
             write!(
@@ -117,7 +117,7 @@ fn convert(
     input_file_path: &Path,
     output_path: &Path,
     duration: Duration,
-    group: &RecordingGroup,
+    group: &MovieGroup,
 ) -> Result<()> {
     // https://trac.ffmpeg.org/wiki/Concatenate
     let output_file_path = output_path.join(&group.name());

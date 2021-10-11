@@ -10,7 +10,7 @@ type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Failed to convert recording {0}, exit status {1}")]
+    #[error("Failed to convert movie {0}, exit status {1}")]
     FailedToConvert(String, ExitStatusError),
 
     #[error("Invalid ffmpeg output line {0}")]
