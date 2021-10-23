@@ -61,7 +61,7 @@ where
         let input = self.input.take().unwrap();
         let output = self.output.take().unwrap();
 
-        let movies = movies
+        let mergers = movies
             .into_iter()
             .enumerate()
             .map(|(index, movie)| {
@@ -76,7 +76,7 @@ where
             .collect::<Vec<_>>();
 
         let worker = thread::spawn(move || {
-            movies
+            mergers
                 .into_par_iter()
                 .map(|merger| merger.merge().map_err(Error::from))
                 .collect::<Result<Vec<_>>>()?;

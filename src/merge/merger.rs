@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::group::MovieGroup;
-pub use crate::merge::ffmpeg_merger::FfmpegMerger;
+pub use crate::merge::ffmpeg::FFmpegMerger;
 use crate::merge::Result;
 
 use crate::progress::Progress;

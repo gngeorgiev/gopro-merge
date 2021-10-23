@@ -1,17 +1,13 @@
-#![feature(exit_status_error)]
-
 use std::path::PathBuf;
 use std::{env, path::Path, str::FromStr};
 
 use log::*;
 use structopt::StructOpt;
 
-use crate::{
-    group::movies,
-    merge::FfmpegMerger,
-    progress::{ConsoleProgressBarReporter, Reporter},
-};
-use crate::{processor::Processor, progress::JsonProgressReporter};
+use crate::group::movies;
+use crate::merge::FFmpegMerger;
+use crate::processor::Processor;
+use crate::progress::{ConsoleProgressBarReporter, JsonProgressReporter, Reporter};
 use derive_more::Display;
 
 mod encoding;
@@ -60,7 +56,7 @@ impl FromStr for OptReporter {
         Ok(match s {
             "json" => OptReporter::Json,
             "progressbar" => OptReporter::ProgressBar,
-            _ => OptReporter::ProgressBar,
+            _ => Default::default(),
         })
     }
 }
@@ -72,7 +68,7 @@ impl Default for OptReporter {
 }
 
 impl Opt {
-    // Only the first calls of get_input and get_output produce expected results, no intended to be called twice
+    // Only the first calls of get_input and get_output produce expected results, not intended to be called twice
     fn get_input(&mut self, parent: &Path) -> Result<PathBuf> {
         self.input
             .take()
@@ -113,16 +109,15 @@ fn main() -> Result<()> {
     debug!("collected movies: {:?}", movies);
 
     debug!("starting processor with {} reporter", opt.reporter);
-
     match opt.reporter {
         OptReporter::ProgressBar => Processor::<
             ConsoleProgressBarReporter,
-            FfmpegMerger<<ConsoleProgressBarReporter as Reporter>::Progress>,
+            FFmpegMerger<<ConsoleProgressBarReporter as Reporter>::Progress>,
         >::new(input, output, movies)
         .process(),
         OptReporter::Json => Processor::<
             JsonProgressReporter,
-            FfmpegMerger<<JsonProgressReporter as Reporter>::Progress>,
+            FFmpegMerger<<JsonProgressReporter as Reporter>::Progress>,
         >::new(input, output, movies)
         .process(),
     }
