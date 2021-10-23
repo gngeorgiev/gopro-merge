@@ -1,4 +1,5 @@
 mod command;
+mod ffmpeg_merger;
 pub mod merge;
 mod stream;
 

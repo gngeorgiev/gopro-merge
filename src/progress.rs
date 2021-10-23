@@ -22,8 +22,10 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-pub trait Reporter: Clone {
+pub trait Reporter: Clone + Sized + Send + 'static {
     type Progress;
+
+    fn new() -> Self;
 
     fn add(&self, group: &MovieGroup, index: usize, movies_len: usize) -> Self::Progress;
     fn wait(&self) -> Result<()>;
@@ -34,16 +36,14 @@ pub struct ConsoleProgressBarReporter {
     multi: Arc<MultiProgress>,
 }
 
-impl ConsoleProgressBarReporter {
-    pub fn new() -> Self {
+impl Reporter for ConsoleProgressBarReporter {
+    type Progress = TerminalProgressBar;
+
+    fn new() -> Self {
         ConsoleProgressBarReporter {
             multi: Arc::new(MultiProgress::new()),
         }
     }
-}
-
-impl Reporter for ConsoleProgressBarReporter {
-    type Progress = TerminalProgressBar;
 
     fn add(&self, group: &MovieGroup, index: usize, movies_len: usize) -> Self::Progress {
         let pb = self.multi.add(
@@ -71,7 +71,7 @@ impl Reporter for ConsoleProgressBarReporter {
     }
 }
 
-pub trait Progress: Clone {
+pub trait Progress: Clone + Send + 'static {
     fn update(&mut self, progress: Duration);
     fn set_len(&mut self, len: Duration);
     fn finish(&self);
@@ -124,16 +124,14 @@ pub struct JsonProgressReporter {
     progresses: Arc<Mutex<Vec<JsonProgress>>>,
 }
 
-impl JsonProgressReporter {
-    pub fn new() -> Self {
+impl Reporter for JsonProgressReporter {
+    type Progress = JsonProgress;
+
+    fn new() -> Self {
         JsonProgressReporter {
             progresses: Arc::new(Mutex::new(vec![])),
         }
     }
-}
-
-impl Reporter for JsonProgressReporter {
-    type Progress = JsonProgress;
 
     fn add(&self, group: &MovieGroup, index: usize, movies_len: usize) -> Self::Progress {
         let p = JsonProgress::new(group.name(), group.chapters.len(), index, movies_len);

@@ -6,8 +6,13 @@ use std::{env, path::Path, str::FromStr};
 use log::*;
 use structopt::StructOpt;
 
-use crate::{group::movies, progress::ConsoleProgressBarReporter};
+use crate::{
+    group::movies,
+    merge::FfmpegMerger,
+    progress::{ConsoleProgressBarReporter, Reporter},
+};
 use crate::{processor::Processor, progress::JsonProgressReporter};
+use derive_more::Display;
 
 mod encoding;
 mod group;
@@ -40,9 +45,11 @@ struct Opt {
     reporter: OptReporter,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Display)]
 enum OptReporter {
+    #[display(fmt = "json")]
     Json,
+    #[display(fmt = "progressbar")]
     ProgressBar,
 }
 
@@ -105,19 +112,19 @@ fn main() -> Result<()> {
     let movies = movies(&input)?;
     debug!("collected movies: {:?}", movies);
 
+    debug!("starting processor with {} reporter", opt.reporter);
+
     match opt.reporter {
-        OptReporter::ProgressBar => {
-            debug!("starting processor with progress bar reporter");
-            Processor::new(input, output, movies)
-                .with_reporter(ConsoleProgressBarReporter::new())
-                .process()
-        }
-        OptReporter::Json => {
-            debug!("starting processor with json reporter");
-            Processor::new(input, output, movies)
-                .with_reporter(JsonProgressReporter::new())
-                .process()
-        }
+        OptReporter::ProgressBar => Processor::<
+            ConsoleProgressBarReporter,
+            FfmpegMerger<<ConsoleProgressBarReporter as Reporter>::Progress>,
+        >::new(input, output, movies)
+        .process(),
+        OptReporter::Json => Processor::<
+            JsonProgressReporter,
+            FfmpegMerger<<JsonProgressReporter as Reporter>::Progress>,
+        >::new(input, output, movies)
+        .process(),
     }
     .map_err(From::from)
 }

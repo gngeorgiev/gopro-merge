@@ -19,24 +19,15 @@ where
     fn wait_success(self) -> Result<()>;
 }
 
-pub struct FFmpegOpts {
-    pub input: PathBuf,
-    pub output: PathBuf,
-}
-
-pub struct FFprobeOpts {
-    pub input: PathBuf,
-}
-
 pub enum Kind {
-    FFmpeg(FFmpegOpts),
-    FFprobe(FFprobeOpts),
+    FFmpeg(PathBuf, PathBuf),
+    FFprobe(PathBuf),
 }
 
 impl Kind {
     fn args(&self) -> Vec<&str> {
         match self {
-            &Kind::FFmpeg(ref opts) => {
+            Kind::FFmpeg(input, output) => {
                 vec![
                     "-f",
                     "concat",
@@ -44,20 +35,20 @@ impl Kind {
                     "0",
                     "-y",
                     "-i",
-                    opts.input.as_os_str().to_str().unwrap(),
+                    input.as_os_str().to_str().unwrap(),
                     "-c",
                     "copy",
-                    opts.output.as_os_str().to_str().unwrap(),
+                    output.as_os_str().to_str().unwrap(),
                     "-loglevel",
                     "error",
                     "-progress",
                     "pipe:1",
                 ]
             }
-            &Kind::FFprobe(ref opts) => {
+            Kind::FFprobe(input) => {
                 vec![
                     "-i",
-                    opts.input.as_os_str().to_str().unwrap(),
+                    input.as_os_str().to_str().unwrap(),
                     "-show_streams",
                     "-loglevel",
                     "error",
@@ -68,15 +59,15 @@ impl Kind {
 
     fn process_name(&self) -> &'static str {
         match self {
-            &Kind::FFmpeg(_) => FFMPEG_PROCESS_NAME,
-            &Kind::FFprobe(_) => FFPROBE_PROCESS_NAME,
+            Kind::FFmpeg(_, _) => FFMPEG_PROCESS_NAME,
+            Kind::FFprobe(_) => FFPROBE_PROCESS_NAME,
         }
     }
 
     fn file(&self) -> &str {
         match self {
-            &Kind::FFmpeg(ref opts) => opts.input.as_os_str().to_str().unwrap(),
-            &Kind::FFprobe(ref opts) => opts.input.as_os_str().to_str().unwrap(),
+            Kind::FFmpeg(input, _) => input.as_os_str().to_str().unwrap(),
+            Kind::FFprobe(input) => input.as_os_str().to_str().unwrap(),
         }
     }
 }

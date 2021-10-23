@@ -70,7 +70,7 @@ impl TryFrom<&str> for Identifier {
 
 impl Identifier {
     pub fn numeric(&self) -> Result<usize, Error> {
-        Ok(self.raw_value.parse()?)
+        self.raw_value.parse().map_err(From::from)
     }
 
     fn string(&self) -> String {
