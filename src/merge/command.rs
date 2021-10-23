@@ -1,8 +1,7 @@
 use std::process::ChildStdout;
 
-use crate::merge::Result;
-
 pub use crate::merge::ffmpeg::{FFmpegCommand, FFmpegCommandKind};
+use crate::merge::Result;
 
 pub trait Command
 where

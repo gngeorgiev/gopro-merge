@@ -1,9 +1,7 @@
 use std::path::PathBuf;
 
 use crate::group::MovieGroup;
-pub use crate::merge::ffmpeg::FFmpegMerger;
 use crate::merge::Result;
-
 use crate::progress::Progress;
 
 pub trait Merger: Sized + Send + 'static {
