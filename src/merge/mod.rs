@@ -1,11 +1,11 @@
 mod command;
 mod ffmpeg_merger;
-pub mod merge;
+pub mod merger;
 mod stream;
 
 use std::{io, num::ParseIntError, process::ExitStatusError};
 
-pub use merge::*;
+pub use merger::*;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -18,7 +18,7 @@ pub enum Error {
     InvalidOutputLine(String),
 
     #[error("Parsing ffmpeg output line {0}")]
-    ParseIntError(#[from] ParseIntError),
+    ParseInt(#[from] ParseIntError),
 
     #[error(transparent)]
     IO(#[from] io::Error),

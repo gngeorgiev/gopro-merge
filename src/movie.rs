@@ -55,7 +55,7 @@ impl<'a> TryFrom<&'a str> for Movie {
         let ext = iter.next().ok_or_else(invalid_file_name_error(name))?;
         let name = iter.next().ok_or_else(invalid_file_name_error(name))?;
         if name.len() != 8 {
-            return Err(Error::InvalidFileName(name.into()).into());
+            return Err(Error::InvalidFileName(name.into()));
         }
 
         let encoding = Encoding::try_from(name)?;
@@ -72,7 +72,7 @@ impl<'a> TryFrom<&'a str> for Movie {
         let movie = Movie {
             fingerprint: Fingerprint {
                 encoding,
-                file: file.clone(),
+                file,
                 extension: ext.into(),
             },
             chapter,
@@ -93,7 +93,7 @@ mod tests {
                 "GH010034.mp4",
                 Movie {
                     fingerprint: Fingerprint {
-                        encoding: Encoding::AVC,
+                        encoding: Encoding::Avc,
                         file: Identifier::try_from("0034").unwrap(),
                         extension: "mp4".into(),
                     },
@@ -104,7 +104,7 @@ mod tests {
                 "GX111134.flv",
                 Movie {
                     fingerprint: Fingerprint {
-                        encoding: Encoding::HEVC,
+                        encoding: Encoding::Hevc,
                         file: Identifier::try_from("1134").unwrap(),
                         extension: "flv".into(),
                     },

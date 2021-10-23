@@ -10,16 +10,16 @@ pub enum Error {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Display)]
 pub enum Encoding {
     #[display(fmt = "GH")]
-    AVC,
+    Avc,
     #[display(fmt = "GX")]
-    HEVC,
+    Hevc,
 }
 
 impl Encoding {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Encoding::AVC => "GH",
-            Encoding::HEVC => "GX",
+            Encoding::Avc => "GH",
+            Encoding::Hevc => "GX",
         }
     }
 }
@@ -28,12 +28,12 @@ impl TryFrom<&str> for Encoding {
     type Error = Error;
 
     fn try_from(name: &str) -> Result<Self, Self::Error> {
-        if name.starts_with(Encoding::AVC.as_str()) {
-            Ok(Encoding::AVC)
-        } else if name.starts_with(Encoding::HEVC.as_str()) {
-            Ok(Encoding::HEVC)
+        if name.starts_with(Encoding::Avc.as_str()) {
+            Ok(Encoding::Avc)
+        } else if name.starts_with(Encoding::Hevc.as_str()) {
+            Ok(Encoding::Hevc)
         } else {
-            Err(Error::InvalidEncoding(name.into()).into())
+            Err(Error::InvalidEncoding(name.into()))
         }
     }
 }
@@ -56,7 +56,7 @@ mod tests {
 
     #[test]
     fn encoding_as_str() {
-        assert_eq!("GH", Encoding::AVC.as_str());
-        assert_eq!("GX", Encoding::HEVC.as_str());
+        assert_eq!("GH", Encoding::Avc.as_str());
+        assert_eq!("GX", Encoding::Hevc.as_str());
     }
 }

@@ -74,7 +74,7 @@ where
         );
 
         convert(
-            progress.clone(),
+            progress,
             &ffmpeg_input_file_path,
             &merged_output_path,
             duration,
@@ -97,21 +97,15 @@ fn init_ffmpeg_tmp_file(filename: &str) -> Result<(impl Write, PathBuf)> {
     Ok((tmp_file, tmp_file_path))
 }
 
-fn write_movies_to_input_file(
-    mut input_file: impl Write,
-    movies_paths: &Vec<PathBuf>,
-) -> Result<()> {
-    movies_paths
-        .iter()
-        .map(|path| {
-            write!(
-                input_file,
-                "file '{}'\r\n",
-                path.as_os_str().to_str().unwrap()
-            )
-            .map_err(From::from)
-        })
-        .collect()
+fn write_movies_to_input_file(mut input_file: impl Write, movies_paths: &[PathBuf]) -> Result<()> {
+    movies_paths.iter().try_for_each(|path| {
+        write!(
+            input_file,
+            "file '{}'\r\n",
+            path.as_os_str().to_str().unwrap()
+        )
+        .map_err(From::from)
+    })
 }
 
 fn convert(
@@ -134,9 +128,9 @@ fn convert(
     cmd.wait_success()
 }
 
-fn calculate_total_duration(paths: &Vec<PathBuf>) -> Result<Duration> {
+fn calculate_total_duration(paths: &[PathBuf]) -> Result<Duration> {
     let durations: Vec<Duration> = paths
-        .into_iter()
+        .iter()
         .map(|path| {
             let mut cmd = FFmpegCommand::new(Kind::FFprobe(path.into())).spawn()?;
             let duration = FfprobeDurationParser::new(cmd.stdout()?).parse()?;

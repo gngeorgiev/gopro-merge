@@ -31,14 +31,14 @@ impl TryFrom<&str> for Kind {
                 true => Kind::Chapter,
                 false => Kind::Loop,
             },
-            len @ _ => return Err(Error::InvalidIdentifierLen(len)),
+            len => return Err(Error::InvalidIdentifierLen(len)),
         };
 
         Ok(kind)
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Hash, Clone, Display)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Display)]
 #[display(fmt = "{}", "self.string()")]
 pub struct Identifier {
     raw_value: String,
@@ -47,13 +47,16 @@ pub struct Identifier {
 
 impl Ord for Identifier {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let numeric1 = self.numeric();
-        let numeric2 = other.numeric();
-        if numeric1.is_ok() && numeric2.is_ok() {
-            numeric1.unwrap().cmp(&numeric2.unwrap())
-        } else {
-            self.string().cmp(&other.string())
+        match (self.numeric(), other.numeric()) {
+            (Ok(num1), Ok(num2)) => num1.cmp(&num2),
+            _ => self.string().cmp(&other.string()),
         }
+    }
+}
+
+impl PartialOrd for Identifier {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -120,7 +123,7 @@ mod tests {
                 expected_kind: Kind::Loop,
                 assert_numeric: Box::new(|res: Result<usize, Error>| match res {
                     Err(Error::ParseInt(_)) => {}
-                    err @ _ => panic!("invalid numeric parsing result {:?}", err),
+                    err => panic!("invalid numeric parsing result {:?}", err),
                 }),
             },
         ];

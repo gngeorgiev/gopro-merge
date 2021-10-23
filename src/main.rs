@@ -180,9 +180,11 @@ mod tests {
 
     #[test]
     fn test_opt_parallel() {
-        let mut opt = Opt::default();
+        let mut opt = Opt {
+            parallel: Some(5),
+            ..Default::default()
+        };
 
-        opt.parallel = Some(5);
         assert_eq!(5, opt.get_parallel());
 
         opt.parallel = Some(0);

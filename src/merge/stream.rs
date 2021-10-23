@@ -121,7 +121,7 @@ fn parse_command_stream<V: Default>(
 
     while let Some(Ok(line)) = lines.next() {
         trace!("get_duration_from_command_stream line {}", &line);
-        let mut split = line.split("=");
+        let mut split = line.split('=');
 
         let output_field_name = match split.next() {
             Some(name) => name,

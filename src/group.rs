@@ -116,8 +116,8 @@ mod tests {
     impl<T> Test<T> {
         fn new(files: Vec<&'static str>, expected: Vec<T>) -> Self {
             Test {
-                files: files,
-                expected: expected,
+                files,
+                expected,
                 fs: None,
             }
         }
@@ -150,7 +150,7 @@ mod tests {
                 vec!["GH011234.mp4"],
                 vec![Movie {
                     fingerprint: Fingerprint {
-                        encoding: Encoding::AVC,
+                        encoding: Encoding::Avc,
                         file: Identifier::try_from("1234").unwrap(),
                         extension: "mp4".into(),
                     },
@@ -162,7 +162,7 @@ mod tests {
                 vec![
                     Movie {
                         fingerprint: Fingerprint {
-                            encoding: Encoding::AVC,
+                            encoding: Encoding::Avc,
                             file: Identifier::try_from("1234").unwrap(),
                             extension: "mp4".into(),
                         },
@@ -170,7 +170,7 @@ mod tests {
                     },
                     Movie {
                         fingerprint: Fingerprint {
-                            encoding: Encoding::AVC,
+                            encoding: Encoding::Avc,
                             file: Identifier::try_from("1234").unwrap(),
                             extension: "mp4".into(),
                         },
@@ -190,7 +190,7 @@ mod tests {
                 vec![
                     Movie {
                         fingerprint: Fingerprint {
-                            encoding: Encoding::AVC,
+                            encoding: Encoding::Avc,
                             file: Identifier::try_from("1234").unwrap(),
                             extension: "mp4".into(),
                         },
@@ -198,7 +198,7 @@ mod tests {
                     },
                     Movie {
                         fingerprint: Fingerprint {
-                            encoding: Encoding::AVC,
+                            encoding: Encoding::Avc,
                             file: Identifier::try_from("1234").unwrap(),
                             extension: "mp4".into(),
                         },
@@ -211,7 +211,7 @@ mod tests {
                 vec![
                     Movie {
                         fingerprint: Fingerprint {
-                            encoding: Encoding::AVC,
+                            encoding: Encoding::Avc,
                             file: Identifier::try_from("0001").unwrap(),
                             extension: "mp4".into(),
                         },
@@ -219,7 +219,7 @@ mod tests {
                     },
                     Movie {
                         fingerprint: Fingerprint {
-                            encoding: Encoding::AVC,
+                            encoding: Encoding::Avc,
                             file: Identifier::try_from("0002").unwrap(),
                             extension: "mp4".into(),
                         },
@@ -232,7 +232,7 @@ mod tests {
                 vec![
                     Movie {
                         fingerprint: Fingerprint {
-                            encoding: Encoding::AVC,
+                            encoding: Encoding::Avc,
                             file: Identifier::try_from("1234").unwrap(),
                             extension: "mp4".into(),
                         },
@@ -240,7 +240,7 @@ mod tests {
                     },
                     Movie {
                         fingerprint: Fingerprint {
-                            encoding: Encoding::HEVC,
+                            encoding: Encoding::Hevc,
                             file: Identifier::try_from("1234").unwrap(),
                             extension: "mp4".into(),
                         },
@@ -270,7 +270,7 @@ mod tests {
                 vec!["GH011234.mp4", "GH021234.mp4"],
                 vec![MovieGroup {
                     fingerprint: Fingerprint {
-                        encoding: Encoding::AVC,
+                        encoding: Encoding::Avc,
                         extension: "mp4".into(),
                         file: "1234".try_into().unwrap(),
                     },
@@ -290,7 +290,7 @@ mod tests {
                 vec![
                     MovieGroup {
                         fingerprint: Fingerprint {
-                            encoding: Encoding::AVC,
+                            encoding: Encoding::Avc,
                             extension: "mp4".into(),
                             file: "1234".try_into().unwrap(),
                         },
@@ -301,7 +301,7 @@ mod tests {
                     },
                     MovieGroup {
                         fingerprint: Fingerprint {
-                            encoding: Encoding::HEVC,
+                            encoding: Encoding::Hevc,
                             extension: "flv".into(),
                             file: "1235".try_into().unwrap(),
                         },

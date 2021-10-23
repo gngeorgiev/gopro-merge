@@ -69,8 +69,8 @@ where
                 M::new(
                     reporter.add(&movie, index, movies_len),
                     movie,
-                    input.clone().into(),
-                    output.clone().into(),
+                    input.clone(),
+                    output.clone(),
                 )
             })
             .collect::<Vec<_>>();
@@ -84,7 +84,7 @@ where
             Ok(())
         });
 
-        let reporter = thread::spawn(move || reporter.clone().wait().map_err(Error::from));
+        let reporter = thread::spawn(move || reporter.wait().map_err(Error::from));
 
         [worker, reporter]
             .into_iter()
