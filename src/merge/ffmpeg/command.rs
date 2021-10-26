@@ -51,15 +51,8 @@ impl FFmpegCommandKind {
 
     fn process_name(&self) -> &'static str {
         match self {
-            FFmpegCommandKind::FFmpeg(_, _) => FFMPEG_PROCESS_NAME,
-            FFmpegCommandKind::FFprobe(_) => FFPROBE_PROCESS_NAME,
-        }
-    }
-
-    fn file(&self) -> &str {
-        match self {
-            FFmpegCommandKind::FFmpeg(input, _) => input.as_os_str().to_str().unwrap(),
-            FFmpegCommandKind::FFprobe(input) => input.as_os_str().to_str().unwrap(),
+            FFmpegCommandKind::FFmpeg(..) => FFMPEG_PROCESS_NAME,
+            FFmpegCommandKind::FFprobe(..) => FFPROBE_PROCESS_NAME,
         }
     }
 }
@@ -121,7 +114,14 @@ impl Command for FFmpegCommand {
         if exit_status.success() {
             Ok(())
         } else {
-            Err(Error::FailedToConvert(self.kind.file().into(), exit_status))
+            Err(Error::FailedToConvert(
+                match self.kind {
+                    FFmpegCommandKind::FFmpeg(input, _) | FFmpegCommandKind::FFprobe(input) => {
+                        input.as_os_str().to_str().unwrap().into()
+                    }
+                },
+                exit_status,
+            ))
         }
     }
 }
