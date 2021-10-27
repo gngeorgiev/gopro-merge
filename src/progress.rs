@@ -28,6 +28,7 @@ pub trait Reporter: Clone + Sized + Send + 'static {
     fn new() -> Self;
 
     fn add(&self, group: &MovieGroup, index: usize, movies_len: usize) -> Self::Progress;
+
     fn wait(&self) -> Result<()>;
 }
 

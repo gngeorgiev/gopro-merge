@@ -1,12 +1,28 @@
-use std::io::Read;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::ops::Add;
+use std::str::Split;
 use std::time::Duration;
 
 use crate::merge::Result;
 use crate::progress::Progress;
 
 use log::*;
+
+struct CharToU64Iter<'a>(Split<'a, char>);
+
+impl<'a> Iterator for CharToU64Iter<'a> {
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|c| c.parse::<u64>().unwrap_or_default())
+    }
+}
+
+impl<'a> CharToU64Iter<'a> {
+    fn next_default(&mut self) -> <Self as Iterator>::Item {
+        self.next().unwrap_or_default()
+    }
+}
 
 pub trait CommandStreamDurationParser<T: Read, V: Default> {
     fn parse(&mut self) -> Result<V>;
@@ -18,22 +34,17 @@ pub struct FFprobeDurationParser<T: Read> {
 
 impl<T: Read> CommandStreamDurationParser<T, Duration> for FFprobeDurationParser<T> {
     fn parse(&mut self) -> Result<Duration> {
-        let duration =
-            parse_command_stream(self.stream.take().unwrap(), |name: &str, value: &str| {
-                if name != "duration" {
-                    return None;
-                }
+        let duration = parse_command_stream(self.stream.take().unwrap(), |name, value| {
+            if name != "duration" {
+                return None;
+            }
 
-                let mut split = value.split('.');
-                let seconds = Duration::from_secs(
-                    split.next().unwrap_or_default().parse().unwrap_or_default(),
-                );
-                let micros = Duration::from_micros(
-                    split.next().unwrap_or_default().parse().unwrap_or_default(),
-                );
+            let mut split = CharToU64Iter(value.split('.'));
+            let seconds = Duration::from_secs(split.next_default());
+            let micros = Duration::from_micros(split.next_default());
 
-                Some(seconds.add(micros))
-            })?;
+            Some(seconds.add(micros))
+        })?;
 
         Ok(duration)
     }
@@ -56,16 +67,13 @@ impl<'a, T: Read, P: Progress> CommandStreamDurationParser<T, ()>
     for FFmpegDurationProgressParser<'a, T, P>
 {
     fn parse(&mut self) -> Result<()> {
-        parse_command_stream(
-            self.stream.take().unwrap(),
-            |name: &str, value: &str| match name {
-                "out_time" => {
-                    self.pb.update(self.parse_timestamp_match(value));
-                    None
-                }
-                _ => None,
-            },
-        )?;
+        parse_command_stream(self.stream.take().unwrap(), |name, value| match name {
+            "out_time" => {
+                self.pb.update(self.parse_timestamp_match(value));
+                None
+            }
+            _ => None,
+        })?;
 
         Ok(())
     }
@@ -81,18 +89,14 @@ impl<'a, T: Read, P: Progress> FFmpegDurationProgressParser<'a, T, P> {
 
     fn parse_timestamp_match(&self, input: &str) -> Duration {
         let mut micros_split = input.split('.');
-        let mut secs_split = micros_split.next().unwrap_or("0:0:0").split(':');
+        let mut secs_split = CharToU64Iter(micros_split.next().unwrap_or("0:0:0").split(':'));
 
-        let hours = Duration::from_secs(self.parse_time_unit(secs_split.next()) * 60 * 60);
-        let minutes = Duration::from_secs(self.parse_time_unit(secs_split.next()) * 60);
-        let seconds = Duration::from_secs(self.parse_time_unit(secs_split.next()));
-        let micros = Duration::from_micros(self.parse_time_unit(micros_split.next()));
+        let hours = Duration::from_secs(secs_split.next_default() * 60 * 60);
+        let minutes = Duration::from_secs(secs_split.next_default() * 60);
+        let seconds = Duration::from_secs(secs_split.next_default());
+        let micros = Duration::from_micros(CharToU64Iter(micros_split).next_default());
 
         [hours, minutes, seconds, micros].iter().sum()
-    }
-
-    fn parse_time_unit(&self, t: Option<&str>) -> u64 {
-        t.unwrap_or_default().parse::<u64>().unwrap_or_default()
     }
 }
 
