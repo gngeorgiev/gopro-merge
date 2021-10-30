@@ -2,6 +2,7 @@ use std::convert::TryFrom;
 use std::io;
 use std::{collections::HashMap, path::Path};
 
+use derive_more::Display;
 use log::*;
 use thiserror::Error;
 
@@ -19,7 +20,8 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, Eq, Clone, PartialOrd, Ord)]
+#[derive(Debug, Eq, Clone, PartialOrd, Ord, Display)]
+#[display(fmt = "{}", fingerprint)]
 pub struct MovieGroup {
     pub fingerprint: Fingerprint,
     pub chapters: Vec<Identifier>,
@@ -50,7 +52,7 @@ impl PartialEq for MovieGroup {
 
 pub type MovieGroups = Vec<MovieGroup>;
 
-pub fn movies(path: &Path) -> Result<MovieGroups> {
+pub fn group_movies(path: &Path) -> Result<MovieGroups> {
     let movies = collect_movies(path)?;
     Ok(groups_from_movies(movies))
 }
@@ -315,7 +317,7 @@ mod tests {
             t.setup_fs("test_movies");
 
             let fs = t.fs.as_ref().unwrap();
-            let mut result = movies(&fs.0).unwrap();
+            let mut result = group_movies(&fs.0).unwrap();
             result.sort();
             assert_eq!(t.expected, result);
         });

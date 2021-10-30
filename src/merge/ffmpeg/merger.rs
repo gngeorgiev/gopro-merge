@@ -51,7 +51,7 @@ where
         } = self;
 
         let (ffmpeg_input_file, ffmpeg_input_file_path) =
-            init_ffmpeg_tmp_file(group.fingerprint.file.to_string().as_str())?;
+            init_ffmpeg_input_file(group.fingerprint.file.to_string().as_str())?;
 
         let movies_full_paths = group
             .chapters
@@ -88,7 +88,7 @@ where
     }
 }
 
-fn init_ffmpeg_tmp_file(filename: &str) -> Result<(impl Write, PathBuf)> {
+fn init_ffmpeg_input_file(filename: &str) -> Result<(impl Write, PathBuf)> {
     let tmp_file_path = temp_dir().join(&format!(".{}.txt", filename));
     let tmp_file = fs::OpenOptions::new()
         .create(true)
@@ -125,11 +125,22 @@ fn convert(
     ))
     .spawn()?;
 
+    debug!(
+        "setting progress len for {} to {}",
+        &group,
+        HumanDuration(duration)
+    );
     progress.set_len(duration);
     FFmpegDurationParser::new(cmd.stdout()?, |duration| {
+        debug!(
+            "updating progress for {} to {}",
+            &group,
+            HumanDuration(duration)
+        );
         progress.update(duration);
     })
     .parse()?;
+    debug!("progress finish {}", &group);
     progress.finish();
 
     cmd.wait_success()
@@ -148,40 +159,78 @@ fn calculate_total_duration(paths: &[PathBuf]) -> Result<Duration> {
 
 #[cfg(test)]
 mod tests {
+    use test_env_log::test;
+
     use super::*;
 
-    use std::ops::Add;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
 
     lazy_static::lazy_static! {
         static ref TEST_FILES_PATHS: Vec<PathBuf> =
-            vec!["./tests/GH010084.mp4", "./tests/GH010085.mp4"]
+            vec!["./tests/GH010084.mp4", "./tests/GH020084.mp4"]
                 .into_iter()
                 .map(From::from)
                 .collect();
 
          static ref SINGLE_FILE_DURATION: Duration = {
-            Duration::default()
-                .add(Duration::from_secs(5))
-                .add(Duration::from_micros(449002))
+            Duration::from_secs(5)+Duration::from_micros(458333)
          };
 
          static ref TOTAL_DURATION: Duration = {
-            Duration::default()
-                .add(*SINGLE_FILE_DURATION)
-                .add(*SINGLE_FILE_DURATION)
+            (*SINGLE_FILE_DURATION)+(*SINGLE_FILE_DURATION)
+         };
+
+         // when encoded the duration is different than just summing the two durations
+         static ref TOTAL_DURATION_ENCODED: Duration = {
+             Duration::from_secs(10)+Duration::from_micros(918294)
          };
     }
 
     #[test]
     fn test_ffmpeg_tmp_file() {
-        let (_, p) = init_ffmpeg_tmp_file("filename").unwrap();
+        let (_, p) = init_ffmpeg_input_file("filename").unwrap();
         assert!(p.exists());
         assert_eq!(p.file_name().unwrap().to_str().unwrap(), ".filename.txt");
     }
 
     #[test]
     fn test_calculate_total_duration() {
-        // let duration = calculate_total_duration(TEST_FILES_PATHS.clone()).unwrap();
-        // assert_eq!(*TOTAL_DURATION, duration);
+        let duration = calculate_total_duration(&TEST_FILES_PATHS).unwrap();
+        assert_eq!(*TOTAL_DURATION, duration);
+    }
+
+    #[test]
+    fn test_merger() {
+        #[derive(Clone, Default)]
+        struct MockProgress {
+            finish_called: Arc<AtomicBool>,
+        }
+
+        impl Progress for MockProgress {
+            fn set_len(&mut self, _: Duration) {}
+
+            fn update(&mut self, _: Duration) {}
+
+            fn finish(&self) {
+                self.finish_called.store(true, Ordering::Relaxed);
+            }
+        }
+
+        let tmp_path = PathBuf::from(".tmp");
+        std::fs::create_dir_all(&tmp_path).unwrap();
+
+        let merged_file_name = tmp_path.join("GH000084.mp4");
+
+        let progress = MockProgress::default();
+        let movies_path = std::fs::canonicalize(PathBuf::from("./tests")).unwrap();
+        let group = crate::group::group_movies(&movies_path).unwrap()[0].clone();
+        let merger = FFmpegMerger::new(progress.clone(), group, movies_path, tmp_path);
+        merger.merge().unwrap();
+
+        let duration = calculate_total_duration(&[merged_file_name]).unwrap();
+        assert_eq!(*TOTAL_DURATION_ENCODED, duration);
+
+        assert!(progress.finish_called.load(Ordering::Relaxed));
     }
 }

@@ -24,7 +24,8 @@ pub enum Error {
     Encoding(#[from] encoding::Error),
 }
 
-#[derive(Debug, Eq, PartialOrd, PartialEq, Ord, Hash, Clone)]
+#[derive(Debug, Eq, PartialOrd, PartialEq, Ord, Hash, Clone, Display)]
+#[display(fmt = "{}00{}.{}", "encoding", "file", "extension")]
 pub struct Fingerprint {
     pub encoding: Encoding,
     pub file: Identifier,

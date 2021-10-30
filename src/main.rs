@@ -4,7 +4,7 @@ use std::{env, path::Path, str::FromStr};
 use log::*;
 use structopt::StructOpt;
 
-use crate::group::movies;
+use crate::group::group_movies;
 use crate::merge::FFmpegMerger;
 use crate::processor::Processor;
 use crate::progress::{ConsoleProgressBarReporter, JsonProgressReporter, Reporter};
@@ -105,7 +105,7 @@ fn main() -> Result<()> {
     let input = opt.get_input(wd.as_path())?;
     let output = opt.get_output(wd.as_path())?;
 
-    let movies = movies(&input)?;
+    let movies = group_movies(&input)?;
     debug!("collected movies: {:?}", movies);
 
     debug!("starting processor with {} reporter", opt.reporter);

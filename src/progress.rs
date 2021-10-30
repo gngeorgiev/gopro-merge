@@ -152,6 +152,7 @@ impl Reporter for JsonProgressReporter {
 
 #[derive(Clone)]
 pub struct JsonProgress {
+    //TODO: simpler
     inner: Arc<RwLock<JsonProgressInner>>,
     chan: (Sender<()>, Receiver<()>),
 }
