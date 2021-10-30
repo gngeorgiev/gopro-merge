@@ -4,13 +4,12 @@ use std::str::Split;
 use std::time::Duration;
 
 use crate::merge::Result;
-use crate::progress::Progress;
 
 use log::*;
 
 struct CharToU64Iter<'a>(Split<'a, char>);
 
-impl<'a> Iterator for CharToU64Iter<'a> {
+impl Iterator for CharToU64Iter<'_> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -18,7 +17,7 @@ impl<'a> Iterator for CharToU64Iter<'a> {
     }
 }
 
-impl<'a> CharToU64Iter<'a> {
+impl CharToU64Iter<'_> {
     fn next_default(&mut self) -> <Self as Iterator>::Item {
         self.next().unwrap_or_default()
     }
@@ -58,18 +57,19 @@ impl<T: Read> FFprobeDurationParser<T> {
     }
 }
 
-pub struct FFmpegDurationProgressParser<'a, T: Read, P: Progress> {
+pub struct FFmpegDurationParser<T: Read, P> {
     stream: Option<T>,
-    pb: &'a mut P,
+    cb: P,
 }
 
-impl<'a, T: Read, P: Progress> CommandStreamDurationParser<T, ()>
-    for FFmpegDurationProgressParser<'a, T, P>
+impl<T: Read, P: FnMut(Duration)> CommandStreamDurationParser<T, ()>
+    for FFmpegDurationParser<T, P>
 {
     fn parse(&mut self) -> Result<()> {
         parse_command_stream(self.stream.take().unwrap(), |name, value| match name {
             "out_time" => {
-                self.pb.update(self.parse_timestamp_match(value));
+                let duration = self.parse_timestamp_match(value);
+                (self.cb)(duration);
                 None
             }
             _ => None,
@@ -79,11 +79,11 @@ impl<'a, T: Read, P: Progress> CommandStreamDurationParser<T, ()>
     }
 }
 
-impl<'a, T: Read, P: Progress> FFmpegDurationProgressParser<'a, T, P> {
-    pub fn new(stream: T, pb: &'a mut P) -> Self {
+impl<T: Read, P: FnMut(Duration)> FFmpegDurationParser<T, P> {
+    pub fn new(stream: T, cb: P) -> Self {
         Self {
             stream: stream.into(),
-            pb,
+            cb,
         }
     }
 
@@ -131,14 +131,6 @@ mod tests {
 
     #[test]
     fn test_ffmpeg_parse_duration() {
-        #[derive(Clone)]
-        struct MockProgress {}
-        impl Progress for MockProgress {
-            fn update(&mut self, _: Duration) {}
-            fn set_len(&mut self, _: Duration) {}
-            fn finish(&self) {}
-        }
-
         [
             (
                 "00:06:49.00",
@@ -182,8 +174,7 @@ mod tests {
         .into_iter()
         .for_each(|(input, expected)| {
             let s = String::new();
-            let mut p = MockProgress {};
-            let parser = FFmpegDurationProgressParser::new(s.as_bytes(), &mut p);
+            let parser = FFmpegDurationParser::new(s.as_bytes(), |_| {});
 
             let result = parser.parse_timestamp_match(input);
             assert_eq!(expected, result);
@@ -195,16 +186,6 @@ mod tests {
         #[derive(Clone, Default)]
         struct MockProgress {
             total_duration: Duration,
-        }
-
-        impl Progress for MockProgress {
-            fn update(&mut self, v: Duration) {
-                self.total_duration = self.total_duration.add(v)
-            }
-
-            fn set_len(&mut self, _: Duration) {}
-
-            fn finish(&self) {}
         }
 
         fn stream_data(values: &[&'static str]) -> String {
@@ -232,12 +213,14 @@ mod tests {
         )]
         .into_iter()
         .for_each(|(stream, expected)| {
-            let mut p = MockProgress::default();
-            let mut parser = FFmpegDurationProgressParser::new(stream.as_bytes(), &mut p);
+            let mut total_duration = Duration::default();
+            let mut parser = FFmpegDurationParser::new(stream.as_bytes(), |duration| {
+                total_duration = total_duration.add(duration);
+            });
 
             parser.parse().unwrap();
 
-            assert_eq!(expected, p.total_duration);
+            assert_eq!(expected, total_duration);
         });
     }
 

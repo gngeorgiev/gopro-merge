@@ -9,7 +9,7 @@ use log::*;
 
 use crate::merge::command::{Command as _, FFmpegCommand, FFmpegCommandKind};
 use crate::merge::ffmpeg::parser::{
-    CommandStreamDurationParser as _, FFmpegDurationProgressParser, FFprobeDurationParser,
+    CommandStreamDurationParser as _, FFmpegDurationParser, FFprobeDurationParser,
 };
 use crate::merge::Result;
 use crate::progress::Progress;
@@ -126,7 +126,10 @@ fn convert(
     .spawn()?;
 
     progress.set_len(duration);
-    FFmpegDurationProgressParser::new(cmd.stdout()?, &mut progress).parse()?;
+    FFmpegDurationParser::new(cmd.stdout()?, |duration| {
+        progress.update(duration);
+    })
+    .parse()?;
     progress.finish();
 
     cmd.wait_success()
