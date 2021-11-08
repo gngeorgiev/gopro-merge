@@ -1,4 +1,6 @@
+use derive_more::Display;
 use std::{
+    fs::OpenOptions,
     path::PathBuf,
     process::{Child, ChildStdout, Command as Process, Stdio},
 };
@@ -11,15 +13,18 @@ use crate::merge::{Error, Result};
 const FFMPEG_PROCESS_NAME: &str = "ffmpeg";
 const FFPROBE_PROCESS_NAME: &str = "ffprobe";
 
+#[derive(Display)]
 pub enum FFmpegCommandKind {
-    FFmpeg(PathBuf, PathBuf),
+    #[display(fmt = "ffmpeg")]
+    FFmpeg(PathBuf, PathBuf, PathBuf),
+    #[display(fmt = "ffprobe")]
     FFprobe(PathBuf),
 }
 
 impl FFmpegCommandKind {
     fn args(&self) -> Vec<&str> {
         match self {
-            FFmpegCommandKind::FFmpeg(input, output) => {
+            FFmpegCommandKind::FFmpeg(input, output, _) => {
                 vec![
                     "-f",
                     "concat",
@@ -55,6 +60,13 @@ impl FFmpegCommandKind {
             FFmpegCommandKind::FFprobe(..) => FFPROBE_PROCESS_NAME,
         }
     }
+
+    fn stderr_path(&self) -> Option<&PathBuf> {
+        match self {
+            FFmpegCommandKind::FFmpeg(_, _, stderr) => Some(stderr),
+            FFmpegCommandKind::FFprobe(..) => None,
+        }
+    }
 }
 
 pub struct FFmpegCommand {
@@ -64,7 +76,7 @@ pub struct FFmpegCommand {
 }
 
 impl FFmpegCommand {
-    pub fn new(kind: FFmpegCommandKind) -> Self {
+    pub fn new(kind: FFmpegCommandKind) -> Result<Self> {
         let args = kind.args();
 
         debug!(
@@ -73,17 +85,20 @@ impl FFmpegCommand {
             &args[..]
         );
 
-        let mut process = Process::new(kind.process_name());
-        process
-            .args(&args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null()); //TODO: write stdout with a cli flag
+        let stderr = kind
+            .stderr_path()
+            .map(|path| OpenOptions::new().create(true).write(true).open(path))
+            .transpose()?
+            .map_or_else(Stdio::null, Stdio::from);
 
-        FFmpegCommand {
+        let mut process = Process::new(kind.process_name());
+        process.args(&args).stdout(Stdio::piped()).stderr(stderr);
+
+        Ok(FFmpegCommand {
             kind,
             process,
             child: None,
-        }
+        })
     }
 }
 
@@ -115,9 +130,14 @@ impl Command for FFmpegCommand {
             Ok(())
         } else {
             Err(Error::FailedToConvert(
-                match self.kind {
-                    FFmpegCommandKind::FFmpeg(input, _) | FFmpegCommandKind::FFprobe(input) => {
-                        input.as_os_str().to_str().unwrap().into()
+                match &self.kind {
+                    kind @ FFmpegCommandKind::FFmpeg(input, _, _)
+                    | kind @ FFmpegCommandKind::FFprobe(input) => {
+                        format!(
+                            "{} {}",
+                            kind,
+                            input.as_os_str().to_str().unwrap().to_owned(),
+                        )
                     }
                 },
                 exit_status,

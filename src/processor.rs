@@ -78,19 +78,14 @@ where
         let worker = thread::spawn(move || {
             mergers
                 .into_par_iter()
-                .map(|merger| merger.merge().map_err(Error::from))
-                .collect::<Result<Vec<_>>>()?;
-
-            Ok(())
+                .try_for_each(|merger| merger.merge())
+                .map_err(From::from)
         });
 
         let reporter = thread::spawn(move || reporter.wait().map_err(Error::from));
 
         [worker, reporter]
             .into_iter()
-            .map(|handle| handle.join().unwrap().map_err(Error::from))
-            .collect::<Result<Vec<_>>>()?;
-
-        Ok(())
+            .try_for_each(|handle| handle.join().unwrap())
     }
 }

@@ -1,6 +1,6 @@
 use std::io;
-use std::sync::Arc;
 use std::time::Duration;
+use std::{io::Write, sync::Arc};
 
 use console::style;
 use crossbeam_channel::{bounded, Receiver, Sender};
@@ -64,7 +64,10 @@ impl Reporter for ConsoleProgressBarReporter {
                     .dim()
                 )),
         );
-        TerminalProgressBar { pb, len: None }
+        TerminalProgressBar {
+            pb,
+            len: Duration::default(),
+        }
     }
 
     fn wait(&self) -> Result<()> {
@@ -75,44 +78,43 @@ impl Reporter for ConsoleProgressBarReporter {
 pub trait Progress: Clone + Send + 'static {
     fn update(&mut self, progress: Duration);
     fn set_len(&mut self, len: Duration);
-    fn finish(&self);
+    fn finish(&self, err: Option<String>);
 }
 
 #[derive(Clone, Debug)]
 pub struct TerminalProgressBar {
     pb: ProgressBar,
-    len: Option<Duration>,
+    len: Duration,
 }
 
 impl Progress for TerminalProgressBar {
     fn set_len(&mut self, len: Duration) {
-        self.len = Some(len);
+        self.len = len;
     }
 
     fn update(&mut self, progress: Duration) {
         self.pb
-            .set_position(calculate_percentage(self.len(), progress));
+            .set_position(calculate_percentage(self.len, progress));
         self.pb.set_message(self.message_styled(format!(
             "🕒 {} / {}",
             FormattedDuration(progress),
-            FormattedDuration(self.len())
+            FormattedDuration(self.len)
         )));
     }
 
-    fn finish(&self) {
-        self.pb.finish_with_message(
-            self.message_styled(format!("✅ {}", FormattedDuration(self.len()))),
-        );
+    fn finish(&self, err: Option<String>) {
+        let message = match err {
+            Some(err) => self.message_styled(format!("❌ {}", err)),
+            None => self.message_styled(format!("✅ {}", FormattedDuration(self.len))),
+        };
+
+        self.pb.finish_with_message(message);
     }
 }
 
 impl TerminalProgressBar {
     fn message_styled(&self, msg: String) -> String {
         style(msg).bold().to_string()
-    }
-
-    fn len(&self) -> Duration {
-        self.len.expect("progress len not set")
     }
 }
 
@@ -135,7 +137,14 @@ impl Reporter for JsonProgressReporter {
     }
 
     fn add(&self, group: &MovieGroup, index: usize, movies_len: usize) -> Self::Progress {
-        let p = JsonProgress::new(group.name(), group.chapters.len(), index, movies_len);
+        let p = JsonProgress::new(
+            group.name(),
+            group.chapters.len(),
+            index,
+            movies_len,
+            io::stdout(),
+            io::stderr(),
+        );
         self.progresses.lock().push(p.clone());
         p
     }
@@ -144,74 +153,103 @@ impl Reporter for JsonProgressReporter {
         let progresses = self.progresses.lock();
         progresses
             .iter()
-            .map(|p| p.chan.1.recv().map_err(From::from))
-            .collect::<Result<Vec<_>>>()
-            .map(|_| ())
+            .try_for_each(|p| p.chan.1.recv().map_err(From::from))
     }
 }
 
+type JsonProgressStream = Arc<Mutex<dyn Write + Sync + Send>>;
+
 #[derive(Clone)]
 pub struct JsonProgress {
-    //TODO: simpler
-    inner: Arc<RwLock<JsonProgressInner>>,
+    len: Arc<RwLock<Duration>>,
+
+    name: String,
+    chapters: usize,
+    index: usize,
+    movies_len: usize,
+
     chan: (Sender<()>, Receiver<()>),
+
+    out_stream: JsonProgressStream,
+    err_out_stream: JsonProgressStream,
 }
 
 impl Progress for JsonProgress {
     fn set_len(&mut self, len: Duration) {
-        self.inner.write().len = len.into();
+        *self.len.write() = len;
     }
 
     fn update(&mut self, progress: Duration) {
-        self.print(
-            progress,
-            calculate_percentage(self.inner.read().len.expect("len not set"), progress),
-        );
+        let len = *self.len.read();
+        self.print(progress, calculate_percentage(len, progress));
     }
 
-    fn finish(&self) {
+    fn finish(&self, err: Option<String>) {
+        if let Some(err) = err {
+            self.print_err(err);
+        }
+
         self.chan.0.send(()).unwrap();
     }
 }
 
 impl JsonProgress {
-    fn new(name: String, chapters: usize, index: usize, all_movies: usize) -> Self {
+    fn new<T: Write + Sync + Send + 'static, E: Write + Sync + Send + 'static>(
+        name: String,
+        chapters: usize,
+        index: usize,
+        movies_len: usize,
+        out_stream: T,
+        err_out_stream: E,
+    ) -> Self {
         JsonProgress {
-            inner: Arc::new(RwLock::new(JsonProgressInner {
-                name,
-                chapters,
-                index,
-                all_movies,
-                len: None,
-            })),
+            len: Arc::new(RwLock::new(Duration::default())),
+            name,
+            chapters,
+            index,
+            movies_len,
             chan: bounded(1),
+            out_stream: Arc::new(Mutex::new(out_stream)),
+            err_out_stream: Arc::new(Mutex::new(err_out_stream)),
         }
     }
 
-    fn print(&self, progress: Duration, progress_percentage: u64) {
-        let inner = self.inner.read();
-
+    fn print_err(&self, err: String) {
         let json_data = json!({
-            "name": inner.name,
-            "chapters": inner.chapters,
-            "index": inner.index,
-            "len": FormattedDuration(inner.len.expect("len not set: print")).to_string(),
-            "all_movies": inner.all_movies,
+            "name": self.name,
+            "chapters": self.chapters,
+            "index": self.index,
+            "len": FormattedDuration(*self.len.read()).to_string(),
+            "movies_len": self.movies_len,
+            "err": err,
+        });
+
+        // This stream is usually going to be stderr, unless in tests
+        // so it's generally fine to panic if we can't print to stdout anyways
+        self.err_out_stream
+            .lock()
+            .write_all(format!("{}\n", json_data).as_bytes())
+            .expect("writing json progress to err stream");
+    }
+
+    fn print(&self, progress: Duration, progress_percentage: u64) {
+        let json_data = json!({
+            "name": self.name,
+            "chapters": self.chapters,
+            "index": self.index,
+            "len": FormattedDuration(*self.len.read()).to_string(),
+            "movies_len": self.movies_len,
             "progress_time": FormattedDuration(progress).to_string(),
             "progress_percentage": progress_percentage,
         });
 
-        //TODO: This should probabaly write to a selected stream in the future and be fallible
-        println!("{}", json_data);
+        // This stream is usually going to be stdout, unless in tests
+        // so it's generally fine to panic if we can't print to stdout anyways
+        self.out_stream
+            .lock()
+            .write_all(format!("{}\n", json_data).as_bytes())
+            .expect("writing json progress to out stream");
     }
-}
-
-struct JsonProgressInner {
-    name: String,
-    chapters: usize,
-    index: usize,
-    all_movies: usize,
-    len: Option<Duration>,
 }
 
 #[cfg(test)]
@@ -220,14 +258,10 @@ mod tests {
 
     #[test]
     fn test_calculate_percentage() {
-        fn test_case<T: Into<f64>>(
-            len: T,
-            progress: T,
-            expected: u64,
-        ) -> (Duration, Duration, u64) {
+        fn test_case(len: u64, progress: u64, expected: u64) -> (Duration, Duration, u64) {
             (
-                Duration::from_secs_f64(len.into()),
-                Duration::from_secs_f64(progress.into()),
+                Duration::from_secs(len),
+                Duration::from_secs(progress),
                 expected,
             )
         }

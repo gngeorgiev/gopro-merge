@@ -24,7 +24,7 @@ pub struct FFmpegMerger<P> {
 
 impl<P> Merger for FFmpegMerger<P>
 where
-    P: Progress + Sized + Send + 'static,
+    P: Progress + Send + 'static,
 {
     type Progress = P;
 
@@ -41,17 +41,28 @@ where
             merged_output_path,
         }
     }
-
     fn merge(self) -> Result<()> {
+        let progress = self.progress.clone();
+        let merge_result = self.merge_inner();
+        progress.finish(merge_result.as_ref().err().map(|e| format!("{}", e)));
+        merge_result
+    }
+}
+
+impl<P> FFmpegMerger<P>
+where
+    P: Progress + Send + 'static,
+{
+    fn merge_inner(self) -> Result<()> {
         let Self {
-            progress,
+            mut progress,
             group,
             movies_path,
             merged_output_path,
         } = self;
 
         let (ffmpeg_input_file, ffmpeg_input_file_path) =
-            init_ffmpeg_input_file(group.fingerprint.file.to_string().as_str())?;
+            init_ffmpeg_input_file(&group.fingerprint.file.to_string())?;
 
         let movies_full_paths = group
             .chapters
@@ -74,11 +85,17 @@ where
             HumanDuration(duration)
         );
 
+        debug!("converting {}", &group,);
+        debug!(
+            "setting progress len for {} to {}",
+            &group,
+            HumanDuration(duration)
+        );
+        progress.set_len(duration);
         convert(
-            progress,
+            progress.clone(),
             &ffmpeg_input_file_path,
             &merged_output_path,
-            duration,
             &group,
         )?;
 
@@ -90,6 +107,7 @@ where
 
 fn init_ffmpeg_input_file(filename: &str) -> Result<(impl Write, PathBuf)> {
     let tmp_file_path = temp_dir().join(&format!(".{}.txt", filename));
+    info!("Creating temporary ffmpeg file {}", tmp_file_path.display());
     let tmp_file = fs::OpenOptions::new()
         .create(true)
         .write(true)
@@ -113,7 +131,6 @@ fn convert(
     mut progress: impl Progress,
     input_file_path: &Path,
     output_path: &Path,
-    duration: Duration,
     group: &MovieGroup,
 ) -> Result<()> {
     // https://trac.ffmpeg.org/wiki/Concatenate
@@ -122,15 +139,10 @@ fn convert(
     let mut cmd = FFmpegCommand::new(FFmpegCommandKind::FFmpeg(
         input_file_path.into(),
         output_file_path,
-    ))
+        temp_dir().join(&format!(".ffmpeg_stderr_{}.log", group.name())),
+    ))?
     .spawn()?;
 
-    debug!(
-        "setting progress len for {} to {}",
-        &group,
-        HumanDuration(duration)
-    );
-    progress.set_len(duration);
     FFmpegDurationParser::new(cmd.stdout()?, |duration| {
         debug!(
             "updating progress for {} to {}",
@@ -141,7 +153,6 @@ fn convert(
     })
     .parse()?;
     debug!("progress finish {}", &group);
-    progress.finish();
 
     cmd.wait_success()
 }
@@ -150,7 +161,8 @@ fn calculate_total_duration(paths: &[PathBuf]) -> Result<Duration> {
     paths
         .iter()
         .map(|path| {
-            let mut cmd = FFmpegCommand::new(FFmpegCommandKind::FFprobe(path.into())).spawn()?;
+            let kind = FFmpegCommandKind::FFprobe(path.into());
+            let mut cmd = FFmpegCommand::new(kind)?.spawn()?;
             let duration = FFprobeDurationParser::new(cmd.stdout()?).parse()?;
             cmd.wait_success().map(|_| duration)
         })
@@ -212,7 +224,7 @@ mod tests {
 
             fn update(&mut self, _: Duration) {}
 
-            fn finish(&self) {
+            fn finish(&self, _: Option<String>) {
                 self.finish_called.store(true, Ordering::Relaxed);
             }
         }

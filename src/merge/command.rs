@@ -8,6 +8,8 @@ where
     Self: Sized,
 {
     fn spawn(self) -> Result<Self>;
+
     fn stdout(&mut self) -> Result<&mut ChildStdout>;
+
     fn wait_success(self) -> Result<()>;
 }
