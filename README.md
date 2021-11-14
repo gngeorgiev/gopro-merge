@@ -1,5 +1,7 @@
 # Go Pro Merge
 
+[![pipeline status](https://gitlab.com/gngeorgiev/gopro-merge/badges/master/pipeline.svg)](https://gitlab.com/gngeorgiev/gopro-merge/-/commits/master)
+
 Merge Go Pro generated chaptered files into a single file
 
 ## Demo

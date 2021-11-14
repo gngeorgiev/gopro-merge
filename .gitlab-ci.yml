@@ -5,7 +5,8 @@ variables:
 check:
   stage: test
   before_script:
-    - rustup update
+    - apt -y update
+    - apt install -y ffmpeg
     - rustup component add clippy rustfmt
   script:
     - cargo test
