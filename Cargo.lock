@@ -176,12 +176,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "defmac"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5592fca31e96d8a748d03080b58be78c5383617aa4bd89e69f30607d8769891"
-
-[[package]]
 name = "derive_more"
 version = "0.99.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -232,7 +226,6 @@ dependencies = [
  "color-backtrace",
  "console",
  "crossbeam-channel",
- "defmac",
  "derive_more",
  "env_logger",
  "indicatif",
