@@ -1,6 +1,4 @@
 image: rust:latest
-variables:
-  RUST_LOG: debug
 
 check:
   stage: test
@@ -9,6 +7,6 @@ check:
     - apt install -y ffmpeg
     - rustup component add clippy rustfmt
   script:
-    - cargo test
+    - RUST_LOG=debug cargo test
     - cargo clippy -- -D warnings
     - cargo fmt -- --check
