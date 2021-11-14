@@ -87,7 +87,10 @@ impl FFmpegCommand {
 
         let stderr = kind
             .stderr_path()
-            .map(|path| OpenOptions::new().create(true).write(true).open(path))
+            .map(|path| {
+                info!("creating ffmpeg stderr file at {}", path.display());
+                OpenOptions::new().create(true).write(true).open(path)
+            })
             .transpose()?
             .map_or_else(Stdio::null, Stdio::from);
 
