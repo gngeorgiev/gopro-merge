@@ -226,7 +226,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aaf91faf136cb47367fa430cd46e37a788775e7fa104f8b4bcb3861dc389b724"
 
 [[package]]
-name = "gopro-join"
+name = "gopro-merge"
 version = "0.1.0"
 dependencies = [
  "color-backtrace",

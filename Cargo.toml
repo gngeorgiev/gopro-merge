@@ -1,5 +1,5 @@
 [package]
-name = "gopro-join"
+name = "gopro-merge"
 version = "0.1.0"
 authors = ["ggeorgiev_ <ggeorgiev@gitlab.com>"]
 edition = "2021"
