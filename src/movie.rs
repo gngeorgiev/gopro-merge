@@ -112,6 +112,17 @@ mod tests {
                     chapter: Identifier::try_from("11").unwrap(),
                 },
             ),
+            (
+                "GHAA0001.mp4",
+                Movie {
+                    fingerprint: Fingerprint {
+                        encoding: Encoding::Avc,
+                        file: Identifier::try_from("0001").unwrap(),
+                        extension: "mp4".into(),
+                    },
+                    chapter: Identifier::try_from("AA").unwrap(),
+                },
+            ),
         ];
         ok_input.into_iter().for_each(|(input, expected)| {
             let parsed = Movie::try_from(input).unwrap();

@@ -89,6 +89,55 @@ Merge Go Pro generated chaptered files into a single file
 1 directory, 35 files
 ```
 
+## Supported cameras and file formats
+
+The tables have been built from the following [GoPro Camera File Naming Convention page](https://community.gopro.com/t5/en/GoPro-Camera-File-Naming-Convention/ta-p/390220#).
+
+### HERO10 Black, HERO9 Black, HERO6 Black, & HERO7 (White, Silver, Black), HERO8 Black
+
+| Recording type  | Example                           | Supported |
+| --------------- | --------------------------------- | --------- |
+| Single Video    | **GH**011234.mp4,**GX**011234.mp4 | ✅        |
+| Chaptered Video | GH**01**1234.mp4,GH**02**1234.mp4 | ✅        |
+| Looping Video   | GHAA**0001**.mp4,GHAA**0002**.mp4 | ✅        |
+
+### Max 360
+
+| Recording type | Example           | Supported |
+| -------------- | ----------------- | --------- |
+| Video          | GS**012345**.360  | ❌        |
+| TimeWarp       | GS**012345**.360  | ❌        |
+| Photo          | GS\_**1234**.jpeg | ❌        |
+| PowerPano      | GP\_**1234**.jpeg | ❌        |
+
+### Max HERO
+
+| Recording type  | Example             | Supported |
+| --------------- | ------------------- | --------- |
+| Video           | GH**012345**.mp4    | ❌        |
+| TimeWarp        | GH**012345**.mp4    | ❌        |
+| Photo           | GS\_**1234**.jpeg   | ❌        |
+| TimeLapse Video | GH**012345**.mp4    | ❌        |
+| TimeLapse Photo | GPAA\_**1234**.jpeg | ❌        |
+
+### Fusion
+
+| Recording type  | Example                                                             | Supported |
+| --------------- | ------------------------------------------------------------------- | --------- |
+| Single Video    | GPFR**0001**.mp4                                                    | ❌        |
+| Chaptered Video | GP**FR0002**.mp4,GF**010002**.mp4,GP**BK0002**.mp4,GB**010002**.mp4 | ❌        |
+| Single Photo    | GPFR**0003**.mp4,GPBK**0004**.mp4                                   | ❌        |
+
+### HD HERO2, HERO3, HERO3+, HERO (2014), HERO Session, HERO4, HERO5 Black, HERO5 Session, HERO (2018)
+
+| Recording type                         | Example                                                                  | Supported |
+| -------------------------------------- | ------------------------------------------------------------------------ | --------- |
+| Single Video                           | GOPR**1234**.mp4                                                         | ❌        |
+| Chaptered Video                        | GOPR**1234**.mp4,GP**011234**.mp4,GP**021234**.mp4                       | ❌        |
+| Single Photo                           | GOPR**0002**.jpg                                                         | ❌        |
+| Burst, Time-Lapse Photo, Looping Video | G0**231111**.jpg – G0**231120**.jpg, G0**241121**.jpg – G0**241221**.jpg | ❌        |
+| 3D Recording                           | 3D_L**0002**.mp4,3D_R**0002**.mp4,3D_L**1234**.jpg,3D_R**1234**.jpg      | ❌        |
+
 ## Usage
 
 ```shell
