@@ -11,6 +11,23 @@ use thiserror::Error;
 
 use crate::group::MovieGroup;
 
+#[derive(Clone, Debug)]
+struct ProgressDuration(Arc<RwLock<Duration>>);
+
+impl ProgressDuration {
+    fn new() -> Self {
+        ProgressDuration(Arc::new(RwLock::new(Duration::default())))
+    }
+}
+
+impl std::ops::Deref for ProgressDuration {
+    type Target = Arc<RwLock<Duration>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -66,7 +83,7 @@ impl Reporter for ConsoleProgressBarReporter {
         );
         TerminalProgressBar {
             pb,
-            len: Duration::default(),
+            len: ProgressDuration::new(),
         }
     }
 
@@ -84,28 +101,28 @@ pub trait Progress: Clone + Send + 'static {
 #[derive(Clone, Debug)]
 pub struct TerminalProgressBar {
     pb: ProgressBar,
-    len: Duration,
+    len: ProgressDuration,
 }
 
 impl Progress for TerminalProgressBar {
     fn set_len(&mut self, len: Duration) {
-        self.len = len;
+        *self.len.write() = len;
     }
 
     fn update(&mut self, progress: Duration) {
         self.pb
-            .set_position(calculate_percentage(self.len, progress));
+            .set_position(calculate_percentage(*self.len.read(), progress));
         self.pb.set_message(self.message_styled(format!(
             "🕒 {} / {}",
             FormattedDuration(progress),
-            FormattedDuration(self.len)
+            FormattedDuration(*self.len.read())
         )));
     }
 
     fn finish(&self, err: Option<String>) {
         let message = match err {
             Some(err) => self.message_styled(format!("❌ {}", err)),
-            None => self.message_styled(format!("✅ {}", FormattedDuration(self.len))),
+            None => self.message_styled(format!("✅ {}", FormattedDuration(*self.len.read()))),
         };
 
         self.pb.finish_with_message(message);
@@ -161,7 +178,7 @@ type JsonProgressStream = Arc<Mutex<dyn Write + Sync + Send>>;
 
 #[derive(Clone)]
 pub struct JsonProgress {
-    len: Arc<RwLock<Duration>>,
+    len: ProgressDuration,
 
     name: String,
     chapters: usize,
@@ -203,7 +220,7 @@ impl JsonProgress {
         err_out_stream: E,
     ) -> Self {
         JsonProgress {
-            len: Arc::new(RwLock::new(Duration::default())),
+            len: ProgressDuration::new(),
             name,
             chapters,
             index,
