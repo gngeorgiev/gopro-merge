@@ -1,4 +1,6 @@
 image: rust:latest
+variables:
+  RUST_LOG: debug
 
 check:
   stage: test

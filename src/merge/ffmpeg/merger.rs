@@ -184,7 +184,7 @@ mod tests {
 
     lazy_static::lazy_static! {
         static ref TEST_FILES_PATHS: Vec<PathBuf> =
-            vec!["./tests/GH010084.mp4", "./tests/GH020084.mp4"]
+            vec!["tests/GH010084.mp4", "tests/GH020084.mp4"]
                 .into_iter()
                 .map(From::from)
                 .collect();
