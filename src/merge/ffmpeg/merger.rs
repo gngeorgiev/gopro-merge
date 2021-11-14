@@ -111,6 +111,7 @@ fn init_ffmpeg_input_file(filename: &str) -> Result<(impl Write, PathBuf)> {
     let tmp_file = fs::OpenOptions::new()
         .create(true)
         .write(true)
+        .truncate(true)
         .open(&tmp_file_path)?;
 
     Ok((tmp_file, tmp_file_path))
@@ -175,8 +176,11 @@ mod tests {
 
     use super::*;
 
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::Arc;
+    use std::{
+        fs::File,
+        sync::atomic::{AtomicBool, Ordering},
+    };
+    use std::{io::Read, sync::Arc};
 
     lazy_static::lazy_static! {
         static ref TEST_FILES_PATHS: Vec<PathBuf> =
@@ -201,9 +205,29 @@ mod tests {
 
     #[test]
     fn test_ffmpeg_tmp_file() {
+        let (mut f, p) = init_ffmpeg_input_file("filename").unwrap();
+        assert!(p.exists());
+        assert_eq!(p.file_name().unwrap().to_str().unwrap(), ".filename.txt");
+
+        write!(f, "test").unwrap();
+        let mut contents = String::new();
+        File::open(p)
+            .unwrap()
+            .read_to_string(&mut contents)
+            .unwrap();
+
+        assert_eq!(contents, "test");
+
         let (_, p) = init_ffmpeg_input_file("filename").unwrap();
         assert!(p.exists());
         assert_eq!(p.file_name().unwrap().to_str().unwrap(), ".filename.txt");
+        let mut contents = String::new();
+        File::open(p)
+            .unwrap()
+            .read_to_string(&mut contents)
+            .unwrap();
+
+        assert_eq!(contents, "");
     }
 
     #[test]
