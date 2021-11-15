@@ -178,6 +178,7 @@ No prebuilt binaries are available. Install `cargo` and then install this repo w
 
 1. [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install)
 1. `cargo install --git https://gitlab.com/gngeorgiev/gopro-merge`
+1. Install `ffmpeg`, it should also include `ffprobe`. Both binaries should be in your `$PATH`
 
 ## License
 
